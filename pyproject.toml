@@ -24,7 +24,6 @@ dependencies = [
   "pyyaml",
   "requests",
   "robot_descriptions>=1.16.0",
-  "sam3 @ file:///home/user/Documents/Code/agentic_robots/third_party/sam3",
   "scipy",
   "trimesh>=4.4.0",
   "uvicorn",
