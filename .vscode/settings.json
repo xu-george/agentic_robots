@@ -1,0 +1,20 @@
+{
+    "python-envs.defaultEnvManager": "ms-python.python:conda",
+    "python-envs.defaultPackageManager": "ms-python.python:conda",
+    "python.defaultInterpreterPath": "/home/user/miniforge3/envs/agentic_robotics/bin/python",
+    "python.terminal.activateEnvironment": false,
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}"
+    ],
+    "python-envs.terminal.autoActivationType": "off",
+    "terminal.integrated.defaultProfile.linux": "agentic_robotics",
+    "terminal.integrated.profiles.linux": {
+        "agentic_robotics": {
+            "path": "bash",
+            "args": [
+                "-c",
+                "source /home/user/miniforge3/etc/profile.d/conda.sh && conda activate agentic_robotics && exec bash"
+            ]
+        }
+    }
+}

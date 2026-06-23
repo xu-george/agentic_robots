@@ -1,0 +1,29 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Stacking Agent: LLM GUI Strict",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/tests/agent_test/stacking_agent.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "python": "/home/user/miniforge3/envs/agentic_robotics/bin/python",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "DISPLAY": ":0",
+                "WAYLAND_DISPLAY": "wayland-0",
+                "XAUTHORITY": "/run/user/1000/.mutter-Xwaylandauth.471BR3"
+            },
+            "args": [
+                "--no-fallback",
+                "--gui",
+                "--record-video",
+                "--max-attempts",
+                "2",
+                "--hold-s",
+                "60"
+            ]
+        }
+    ]
+}

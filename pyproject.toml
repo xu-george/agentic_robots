@@ -1,0 +1,44 @@
+[project]
+name = "agentic-robots"
+version = "0.1.0"
+description = "A concise robot-agent framework inspired by CAP-X."
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi",
+  "decord",
+  "einops",
+  "jax==0.4.29",
+  "jax-dataclasses==1.6.3",
+  "jaxlib==0.4.29",
+  "jaxlie==1.5.0",
+  "jaxls @ git+https://github.com/brentyi/jaxls.git@6fe7cf9d56223736b2c0272d080ec7346203c648",
+  "jaxtyping==0.3.7",
+  "numpy",
+  "opencv-python==4.10.0.84",
+  "pillow",
+  "psutil",
+  "pybullet",
+  "pyrender",
+  "pycocotools",
+  "pyroki @ git+https://github.com/chungmin99/pyroki.git@95afccc22658c461ab1042a048ae4e9c24bc2a47",
+  "pyyaml",
+  "requests",
+  "robot_descriptions>=1.16.0",
+  "sam3 @ file:///home/user/Documents/Code/agentic_robots/third_party/sam3",
+  "scipy",
+  "trimesh>=4.4.0",
+  "uvicorn",
+  "yourdfpy>=0.0.56",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "ruff",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.setuptools.packages.find]
+include = ["agentic_robots*"]

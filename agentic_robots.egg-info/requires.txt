@@ -1,0 +1,12 @@
+fastapi
+numpy
+opencv-python==4.10.0.84
+pillow
+pyyaml
+requests
+sam3 @ file:///home/user/Documents/Code/agentic_robots/third_party/sam3
+uvicorn
+
+[dev]
+pytest
+ruff

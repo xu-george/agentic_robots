@@ -1,0 +1,19 @@
+services:
+  sam3:
+    module: agentic_robots.services.sam3.server
+    host: 127.0.0.1
+    port: 8114
+    args:
+      device: cuda
+    health_url: http://127.0.0.1:8114/health
+    log_file: tests/service_tests/outputs/services/sam3.log
+
+  llm:
+    module: agentic_robots.services.foundation_model.qwen.server
+    host: 127.0.0.1
+    port: 8112
+    args:
+      model: qwen3.6:latest
+      ollama_url: http://127.0.0.1:11434
+    health_url: http://127.0.0.1:8112/health
+    log_file: tests/service_tests/outputs/services/qwen.log

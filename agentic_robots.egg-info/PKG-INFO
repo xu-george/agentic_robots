@@ -1,0 +1,16 @@
+Metadata-Version: 2.4
+Name: agentic-robots
+Version: 0.1.0
+Summary: A concise robot-agent framework inspired by CAP-X.
+Requires-Python: >=3.10
+Requires-Dist: fastapi
+Requires-Dist: numpy
+Requires-Dist: opencv-python==4.10.0.84
+Requires-Dist: pillow
+Requires-Dist: pyyaml
+Requires-Dist: requests
+Requires-Dist: sam3 @ file:///home/user/Documents/Code/agentic_robots/third_party/sam3
+Requires-Dist: uvicorn
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
