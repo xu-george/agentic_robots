@@ -17,3 +17,10 @@ services:
       ollama_url: http://127.0.0.1:11434
     health_url: http://127.0.0.1:8112/health
     log_file: tests/service_tests/outputs/services/qwen.log
+
+  graspnet:
+    module: agentic_robots.services.graspnet.server
+    host: 127.0.0.1
+    port: 8115
+    health_url: http://127.0.0.1:8115/health
+    log_file: tests/service_tests/outputs/services/graspnet.log

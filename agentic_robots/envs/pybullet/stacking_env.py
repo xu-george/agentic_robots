@@ -49,7 +49,6 @@ class StackingEnv:
         self.robot: FrankaSim | None = None
         self.object_ids: dict[str, int] = {}
         self.table_id: int | None = None
-        self.held_object: str | None = None
         self._video_writer: cv2.VideoWriter | None = None
         self._video_path: Path | None = None
         self._video_fps = 24.0
@@ -226,7 +225,6 @@ class StackingEnv:
         self.robot = None
         self.object_ids = {}
         self.table_id = None
-        self.held_object = None
         self._video_path = None
 
     def _create_box(

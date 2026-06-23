@@ -6,13 +6,37 @@ import sys
 import time
 from pathlib import Path
 
+import numpy as np
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "tests" / "agent_test" / "outputs" / "stacking_agent"
 
+STACKING_SYSTEM_PROMPT = """You write short Python robot task programs.
+Use only the provided action and scene functions. Do not import modules.
+Positions are usually numpy arrays, so vector addition with small offset lists is allowed.
+Return only executable Python code, no markdown, no explanation.
+"""
+
+STACKING_API_DESCRIPTION = """Scene:
+- get_observation() -> observation dict
+- get_object_position(name) -> object XYZ position
+- is_success() -> whether red cube is stacked on blue cube
+Action:
+- get_end_effector_pose() -> current robot pose with position and quaternion_wxyz
+- move_to_pose(position, quaternion_wxyz, plan_steps=40, sim_steps_per_waypoint=4)
+- open_gripper()
+- close_gripper()
+"""
+
+STACKING_REVISION_GUIDANCE = (
+    "Revise the stacking code. Approach the red cube from above, close the gripper, "
+    "lift, move over the blue cube, lower to stack height, then open the gripper."
+)
+
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the stacking code agent in PyBullet.")
+    parser = argparse.ArgumentParser(description="Run the stacking task with the general code agent.")
     parser.add_argument("--gui", action="store_true")
     parser.add_argument("--no-fallback", action="store_true")
     parser.add_argument("--record-video", action="store_true")
@@ -24,7 +48,12 @@ def main() -> None:
     if str(PROJECT_ROOT) not in sys.path:
         sys.path.insert(0, str(PROJECT_ROOT))
 
-    from agentic_robots.agent import StackingCodeAgent
+    from agentic_robots.agent import (
+        CodeAgent,
+        CodeAgentConfig,
+        make_scene_summary,
+    )
+    from agentic_robots.apis.action import ActionApi
     from agentic_robots.envs.pybullet import StackingEnv
 
     env = StackingEnv(gui=args.gui)
@@ -34,12 +63,34 @@ def main() -> None:
         if args.record_video:
             video_path = env.start_video_recording(args.output_dir / "stacking_agent.mp4")
 
-        agent = StackingCodeAgent(
+        action_api = ActionApi(env)
+        api_functions = {
+            "get_observation": env.get_obs,
+            "get_object_position": env.get_object_position,
+            "is_success": env.is_success,
+        }
+        api_functions.update(action_api.functions())
+        config = CodeAgentConfig(
+            task_description="Stack the red cube on top of the blue cube.",
+            api_functions=api_functions,
+            success_fn=env.is_success,
+            system_prompt=STACKING_SYSTEM_PROMPT,
+            api_description=STACKING_API_DESCRIPTION,
+            scene_context_fn=lambda: {
+                "objects": make_scene_summary(env),
+                "goal": "red_cube centered above blue_cube",
+            },
+            diagnostics_fn=lambda: _stacking_diagnostics(env, action_api),
+            revision_guidance=STACKING_REVISION_GUIDANCE,
+            fallback_code=_fallback_stacking_code(),
+        )
+        agent = CodeAgent(
             env,
+            config,
             allow_fallback=not args.no_fallback,
             max_attempts=args.max_attempts,
         )
-        result = agent.run("Stack the red cube on top of the blue cube.")
+        result = agent.run()
         if args.record_video:
             video_path = env.stop_video_recording()
         saved_paths = _save_result(args.output_dir, result, video_path=video_path)
@@ -67,6 +118,42 @@ def main() -> None:
             raise SystemExit(1)
     finally:
         env.close()
+
+
+def _stacking_diagnostics(env, action_api) -> dict[str, object]:
+    from agentic_robots.agent import make_robot_diagnostics
+
+    red = env.get_object_position("red_cube")
+    blue = env.get_object_position("blue_cube")
+    return {
+        "objects": {
+            "red_cube": red.round(4).tolist(),
+            "blue_cube": blue.round(4).tolist(),
+        },
+        "robot": make_robot_diagnostics(env),
+        "last_grasp": action_api.last_grasp,
+        "xy_error_m": round(float(np.linalg.norm(red[:2] - blue[:2])), 4),
+        "z_delta_m": round(float(red[2] - blue[2]), 4),
+        "task_success": env.is_success(),
+    }
+
+
+def _fallback_stacking_code() -> str:
+    return """
+red = get_object_position("red_cube")
+blue = get_object_position("blue_cube")
+pose = get_end_effector_pose()
+open_gripper()
+move_to_pose(red + [0.0, 0.0, 0.14], pose.quaternion_wxyz)
+move_to_pose(red + [0.0, 0.0, 0.035], pose.quaternion_wxyz)
+close_gripper()
+move_to_pose(red + [0.0, 0.0, 0.18], pose.quaternion_wxyz)
+move_to_pose(blue + [0.0, 0.0, 0.18], pose.quaternion_wxyz)
+move_to_pose(blue + [0.0, 0.0, 0.09], pose.quaternion_wxyz)
+open_gripper()
+move_to_pose(blue + [0.0, 0.0, 0.18], pose.quaternion_wxyz)
+print("stacking fallback success", is_success())
+""".strip()
 
 
 def _save_result(output_dir: Path, result, *, video_path: Path | None = None) -> dict[str, Path]:

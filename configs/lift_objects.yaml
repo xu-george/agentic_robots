@@ -1,0 +1,47 @@
+objects:
+  banana:
+    ycb_id: "011_banana"
+    url: "https://ycb-benchmarks.s3.amazonaws.com/data/google/011_banana_google_16k.tgz"
+    mesh: "google_16k/textured.obj"
+    scale: 1.0
+    position: [0.48, -0.04, 0.09]
+    orientation_xyzw: [0.0, 0.0, 0.0, 1.0]
+    mass: 0.06
+    prompt: "banana"
+  bowl:
+    ycb_id: "024_bowl"
+    url: "https://ycb-benchmarks.s3.amazonaws.com/data/google/024_bowl_google_16k.tgz"
+    mesh: "google_16k/textured.obj"
+    scale: 1.0
+    position: [0.48, 0, 0.10]
+    orientation_xyzw: [0.0, 0.0, 0.0, 1.0]
+    mass: 0.08
+    prompt: "bowl"
+  fork:
+    ycb_id: "030_fork"
+    url: "https://ycb-benchmarks.s3.amazonaws.com/data/google/030_fork_google_16k.tgz"
+    mesh: "google_16k/textured.obj"
+    scale: 1.0
+    position: [0.48, -0.04, 0.055]
+    orientation_xyzw: [0.0, 0.0, 0.0, 1.0]
+    mass: 0.03
+    prompt: "fork"
+    camera:
+      width: 512
+      height: 512
+      eye: [0.48, -0.50, 0.35]
+      target: [0.48, -0.04, 0.05]
+  screwdriver:
+    ycb_id: "043_phillips_screwdriver"
+    url: "https://ycb-benchmarks.s3.amazonaws.com/data/google/043_phillips_screwdriver_google_16k.tgz"
+    mesh: "google_16k/textured.obj"
+    scale: 1.0
+    position: [0.48, -0.04, 0.055]
+    orientation_xyzw: [0.0, 0.0, 0.0, 1.0]
+    mass: 0.05
+    prompt: "screwdriver"
+    camera:
+      width: 512
+      height: 512
+      eye: [0.48, -0.50, 0.35]
+      target: [0.48, -0.04, 0.05]

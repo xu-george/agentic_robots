@@ -11,6 +11,13 @@ import pybullet_data
 ARM_JOINT_INDICES = tuple(range(7))
 FINGER_JOINT_INDICES = (9, 10)
 EEF_LINK_INDEX = 11
+IK_LOWER_LIMITS = np.array(
+    [-2.9671, -1.8326, -2.9671, -3.1416, -2.9671, -0.0873, -2.9671, 0.0, 0.0]
+)
+IK_UPPER_LIMITS = np.array(
+    [2.9671, 1.8326, 2.9671, 0.0, 2.9671, 3.8223, 2.9671, 0.04, 0.04]
+)
+IK_JOINT_RANGES = IK_UPPER_LIMITS - IK_LOWER_LIMITS
 
 
 @dataclass(frozen=True)
@@ -116,8 +123,12 @@ class FrankaSim:
             EEF_LINK_INDEX,
             targetPosition=target_position.tolist(),
             targetOrientation=target_quaternion_xyzw.tolist(),
-            maxNumIterations=200,
-            residualThreshold=1e-4,
+            lowerLimits=IK_LOWER_LIMITS.tolist(),
+            upperLimits=IK_UPPER_LIMITS.tolist(),
+            jointRanges=IK_JOINT_RANGES.tolist(),
+            restPoses=[*self.home_joints.tolist(), 0.04, 0.04],
+            maxNumIterations=1000,
+            residualThreshold=1e-6,
             physicsClientId=self.client_id,
         )
         return np.asarray(solution[:7], dtype=np.float64)

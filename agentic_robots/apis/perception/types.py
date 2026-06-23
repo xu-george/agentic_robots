@@ -26,3 +26,20 @@ class ObjectPose:
     score: float
     points: np.ndarray
     oriented_bounding_box: OrientedBoundingBox
+
+
+@dataclass(frozen=True)
+class GraspPose:
+    """Executable 6-DoF grasp pose selected from a GraspNet plan."""
+
+    position: np.ndarray
+    orientation_wxyz: np.ndarray
+    score: float
+    transform: np.ndarray
+    plan: object
+    graspnet_transform: np.ndarray | None = None
+
+    @property
+    def quaternion_wxyz(self) -> np.ndarray:
+        """Alias that matches get_end_effector_pose().quaternion_wxyz."""
+        return self.orientation_wxyz

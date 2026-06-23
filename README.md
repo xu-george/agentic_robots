@@ -9,41 +9,24 @@ Initial focus:
 - future Genesis environments
 - clean service clients/servers for perception, grasping, motion, and VLMs
 
-## Environment Setup
+## Environment
 
-Create a local conda environment from a fresh checkout:
-
-```bash
-cd /home/user/Documents/Code/agentic_robots
-
-conda create -n agentic_robots python=3.10 -y
-conda activate agentic_robots
-
-python -m pip install --upgrade pip setuptools wheel
-```
-
-Install PyTorch first so the perception and grasping services can use CUDA. If
-your machine uses a different CUDA version, choose the matching command from
-the PyTorch install page.
+The development environment is available as a named conda environment:
 
 ```bash
-python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+conda activate agentic_robotics
 ```
 
-Install the third-party packages in editable mode:
+It lives at:
 
-```bash
-python -m pip install -e third_party/sam3
-python -m pip install -e third_party/contact_graspnet_pytorch
+```text
+/home/user/miniforge3/envs/agentic_robotics
 ```
 
-Then install this project and the development tools:
+This environment was cloned from CAP-X's working environment so it already has
+the GPU stack and editable SAM3 package available.
 
-```bash
-python -m pip install -e ".[dev]"
-```
-
-Useful environment checks:
+Useful checks:
 
 ```bash
 python - <<'PY'
@@ -52,65 +35,26 @@ import torch
 
 print("agentic_robots:", importlib.util.find_spec("agentic_robots").origin)
 print("sam3:", importlib.util.find_spec("sam3").origin)
-print("contact_graspnet_pytorch:", importlib.util.find_spec("contact_graspnet_pytorch").origin)
 print("torch:", torch.__version__)
 print("cuda:", torch.cuda.is_available())
 PY
 ```
 
-## Third-Party Packages
-
-This repo expects these vendor packages to live under `third_party/`:
-
-```text
-third_party/
-  sam3/
-  contact_graspnet_pytorch/
-```
-
-Keep them installed with editable installs during development:
+Start the SAM3 service directly:
 
 ```bash
-python -m pip install -e third_party/sam3
-python -m pip install -e third_party/contact_graspnet_pytorch
-```
-
-Do not commit generated package output such as `build/`, `*.egg-info/`,
-`__pycache__/`, checkpoints, or test outputs. Large model weights should be
-downloaded separately or stored outside Git.
-
-Contact-GraspNet expects its checkpoint at the default vendor location:
-
-```text
-third_party/contact_graspnet_pytorch/checkpoints/contact_graspnet/checkpoints/model.pt
-```
-
-You can override that path when launching the service:
-
-```bash
-python -m agentic_robots.services.graspnet.server \
-  --checkpoint-dir /path/to/contact_graspnet/checkpoints
-```
-
-## Services
-
-Start the SAM3 service:
-
-```bash
-python -m agentic_robots.services.sam3.server --device cuda --port 8114
-```
-
-Start the Contact-GraspNet service:
-
-```bash
-python -m agentic_robots.services.graspnet.server --port 8115
+/home/user/miniforge3/envs/agentic_robotics/bin/python \
+  -m agentic_robots.services.sam3.server --device cuda --port 8114
 ```
 
 Run the manual SAM3 segmentation test:
 
 ```bash
-python tests/service_tests/sam3_segment.py /path/to/image.png "banana"
+/home/user/miniforge3/envs/agentic_robotics/bin/python \
+  tests/service_tests/sam3_segment.py /path/to/image.png "banana"
 ```
+
+## Services
 
 Service launch config lives in:
 
@@ -118,18 +62,189 @@ Service launch config lives in:
 configs/services.yaml
 ```
 
-For a quick command check without starting the services:
+Launch the local Qwen LLM, SAM3, and GraspNet services:
 
 ```bash
-python scripts/launch_services.py --dry-run --services sam3
+cd /home/user/Documents/Code/agentic_robots
+/home/user/miniforge3/envs/agentic_robotics/bin/python \
+  scripts/launch_services.py --services llm sam3 graspnet --detach --wait-s 180
 ```
 
-Run the PyBullet stacking code agent:
+For a quick command check without starting the models:
 
 ```bash
-python tests/agent_test/stacking_agent.py --no-fallback
+/home/user/miniforge3/envs/agentic_robotics/bin/python \
+  scripts/launch_services.py --dry-run --services llm sam3 graspnet
 ```
 
-The agent asks the configured foundation model for high-level Python code, then
-executes only the allowlisted task APIs against the PyBullet stacking
-environment.
+## Unified Code Agent
+
+The task-specific agent classes and task factory branches were removed. The
+agent core is now only a generic LLM/code-execution loop in:
+
+```text
+agentic_robots/agent/code_agent.py
+```
+
+Use it by passing an environment, a natural-language task description, the
+allowlisted APIs available to generated code, and task-local success/diagnostic
+callbacks:
+
+```python
+from agentic_robots.agent import CodeAgent, CodeAgentConfig
+
+config = CodeAgentConfig(
+    task_description="Stack the red cube on top of the blue cube.",
+    api_functions=api_functions,
+    success_fn=env.is_success,
+    scene_context_fn=lambda: {"objects": env.get_ground_truth()},
+    diagnostics_fn=lambda: {"robot": env.get_obs()["robot"]},
+    fallback_code=None,
+)
+agent = CodeAgent(env, config)
+result = agent.run()
+```
+
+`CodeAgent` has no hardcoded `lift` or `stacking` definitions. The demo scripts
+show how to configure the same agent for different environments and tasks.
+
+## Test Demo Commands
+
+Run these from the repo root:
+
+```bash
+cd /home/user/Documents/Code/agentic_robots
+```
+
+Stacking with the real Qwen service:
+
+```bash
+/home/user/miniforge3/envs/agentic_robotics/bin/python \
+  tests/agent_test/stacking_agent.py \
+  --no-fallback \
+  --max-attempts 3
+```
+
+Stacking with GUI and video:
+
+```bash
+/home/user/miniforge3/envs/agentic_robotics/bin/python \
+  tests/agent_test/stacking_agent.py \
+  --gui \
+  --record-video \
+  --max-attempts 3 \
+  --hold-s 10
+```
+
+Lift smoke test without GPU perception services:
+
+```bash
+/home/user/miniforge3/envs/agentic_robotics/bin/python \
+  tests/agent_test/lift_agent.py \
+  --object banana \
+  --fake-perception \
+  --max-attempts 1
+```
+
+Lift with real Qwen, SAM3, GraspNet, and refreshed top-5 grasp markers:
+
+```bash
+/home/user/miniforge3/envs/agentic_robotics/bin/python \
+  scripts/launch_services.py --services llm sam3 graspnet --detach --wait-s 180
+/home/user/miniforge3/envs/agentic_robotics/bin/python \
+  tests/agent_test/lift_agent.py \
+  --object screwdriver \
+  --no-fallback \
+  --show-grasp-pose \
+  --record-video \
+  --max-attempts 1 \
+  --hold-s 10
+```
+
+Change `--object` to `banana`, `bowl`, `fork`, or `screwdriver`.
+
+## Stacking Demo
+
+Run the PyBullet stacking task through the general code agent:
+
+```bash
+cd /home/user/Documents/Code/agentic_robots
+/home/user/miniforge3/envs/agentic_robotics/bin/python \
+  tests/agent_test/stacking_agent.py --no-fallback
+```
+
+The agent asks the Qwen service for high-level Python code, then executes only
+the allowlisted task APIs against the PyBullet stacking environment.
+
+Optional GUI/video run:
+
+```bash
+cd /home/user/Documents/Code/agentic_robots
+/home/user/miniforge3/envs/agentic_robotics/bin/python \
+  tests/agent_test/stacking_agent.py \
+  --gui \
+  --record-video \
+  --max-attempts 3 \
+  --hold-s 10
+```
+
+## YCB Lift Demo
+
+Download the supported YCB meshes:
+
+```bash
+cd /home/user/Documents/Code/agentic_robots
+/home/user/miniforge3/envs/agentic_robotics/bin/python \
+  scripts/download_ycb_objects.py --objects banana bowl fork screwdriver
+```
+
+Run the YCB lift pipeline with SAM3, GraspNet, Qwen, and PyBullet:
+
+```bash
+cd /home/user/Documents/Code/agentic_robots
+/home/user/miniforge3/envs/agentic_robotics/bin/python \
+  scripts/launch_services.py --services llm sam3 graspnet --detach --wait-s 180
+/home/user/miniforge3/envs/agentic_robotics/bin/python \
+  tests/agent_test/lift_agent.py \
+  --object banana \
+  --no-fallback \
+  --show-grasp-pose \
+  --record-video \
+  --max-attempts 1
+```
+
+Supported lift objects are configured in:
+
+```text
+configs/lift_objects.yaml
+```
+
+Current object names:
+
+```text
+banana
+bowl
+fork
+screwdriver
+```
+
+Run another object by changing `--object`:
+
+```bash
+cd /home/user/Documents/Code/agentic_robots
+/home/user/miniforge3/envs/agentic_robotics/bin/python \
+  tests/agent_test/lift_agent.py \
+  --object screwdriver \
+  --no-fallback \
+  --show-grasp-pose \
+  --record-video \
+  --max-attempts 1
+```
+
+`--show-grasp-pose` refreshes the PyBullet debug marker every time the LLM code
+calls `get_best_grasp_pose()`. It draws the latest top 5 GraspNet candidates,
+highlights the best raw GraspNet marker, and returns the converted executable
+Panda pose to the generated code.
+
+For a robot-only smoke test without GPU perception services, add
+`--fake-perception`.

@@ -6,11 +6,21 @@ from typing import Any
 import numpy as np
 
 from agentic_robots.apis.base import ApiBase
-from agentic_robots.apis.perception.types import ObjectPose, OrientedBoundingBox
+from agentic_robots.apis.perception.types import GraspPose, ObjectPose, OrientedBoundingBox
 from agentic_robots.services.graspnet.client import GraspNetClient
 from agentic_robots.services.graspnet.types import GraspPlan
 from agentic_robots.services.sam3.client import Sam3Client
 from agentic_robots.services.sam3.types import PointPromptResult, Sam3Mask
+
+PANDA_GRASPTARGET_FROM_GRASPNET = np.array(
+    [
+        [0.0, 1.0, 0.0, 0.0],
+        [-1.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.105],
+        [0.0, 0.0, 0.0, 1.0],
+    ],
+    dtype=np.float64,
+)
 
 
 class PerceptionApi(ApiBase):
@@ -38,6 +48,7 @@ class PerceptionApi(ApiBase):
                 self.get_oriented_bounding_box_from_3d_points
             ),
             "plan_grasp": self.plan_grasp,
+            "get_best_grasp_pose": self.get_best_grasp_pose,
         }
 
     def get_observation(self) -> dict[str, Any]:
@@ -257,11 +268,11 @@ class PerceptionApi(ApiBase):
         self,
         depth: np.ndarray,
         intrinsics: np.ndarray,
-        segmentation: np.ndarray,
+        segmentation: Any,
         *,
         segmap_id: int = 1,
         z_range: tuple[float, float] = (0.2, 2.0),
-        forward_passes: int = 2,
+        forward_passes: int = 4,
         max_retries: int = 10,
     ) -> GraspPlan:
         """Plan grasp candidates for one segmented object with GraspNet.
@@ -287,7 +298,7 @@ class PerceptionApi(ApiBase):
             grasp_plan:
                 GraspPlan with 4x4 grasp transforms, scores, and contact points.
         """
-        segmap = np.asarray(segmentation)
+        segmap = _coerce_segmentation(segmentation)
         if segmap.dtype == bool:
             segmap = segmap.astype(np.int32)
             segmap_id = 1
@@ -300,6 +311,65 @@ class PerceptionApi(ApiBase):
             z_range=z_range,
             forward_passes=forward_passes,
             max_retries=max_retries,
+        )
+
+    def get_best_grasp_pose(
+        self,
+        depth: np.ndarray,
+        intrinsics: np.ndarray,
+        segmentation: Any,
+        camera_pose: np.ndarray | None = None,
+        *,
+        segmap_id: int = 1,
+        z_range: tuple[float, float] = (0.2, 2.0),
+        forward_passes: int = 4,
+        max_retries: int = 10,
+    ) -> GraspPose:
+        """Return the highest-scoring GraspNet 6-DoF grasp as a pose.
+
+        The returned pose is in the camera frame by default. If `camera_pose`
+        is supplied, the grasp transform is converted into that world frame.
+        """
+        plan = self.plan_grasp(
+            depth=depth,
+            intrinsics=intrinsics,
+            segmentation=segmentation,
+            segmap_id=segmap_id,
+            z_range=z_range,
+            forward_passes=forward_passes,
+            max_retries=max_retries,
+        )
+        if plan.empty:
+            raise RuntimeError("GraspNet returned no grasp candidates")
+
+        best_idx = int(np.argmax(plan.scores)) if plan.scores.size else 0
+        if camera_pose is None and self._observation_provider is not None:
+            observation = self._observation_provider()
+            camera_pose = observation.get("camera_pose")
+        if plan.contact_points.size:
+            best_idx = _select_contact_grasp_index(
+                depth=np.asarray(depth),
+                intrinsics=np.asarray(intrinsics),
+                segmentation=segmentation,
+                plan=plan,
+                camera_pose=camera_pose,
+                fallback_index=best_idx,
+            )
+
+        graspnet_transform = np.asarray(plan.grasps[best_idx], dtype=np.float64).reshape(4, 4)
+        if camera_pose is not None:
+            camera_pose = np.asarray(camera_pose, dtype=np.float64).reshape(4, 4)
+            graspnet_transform = camera_pose @ graspnet_transform
+
+        transform = graspnet_transform @ PANDA_GRASPTARGET_FROM_GRASPNET
+
+        return GraspPose(
+            position=transform[:3, 3].copy(),
+            orientation_wxyz=_rotation_matrix_to_quaternion_wxyz(transform[:3, :3]),
+            score=float(plan.scores[best_idx]) if plan.scores.size else 0.0,
+            transform=transform,
+            plan=plan,
+            graspnet_transform=graspnet_transform,
         )
 
 
@@ -339,3 +409,59 @@ def _rotation_matrix_to_quaternion_wxyz(rotation: np.ndarray) -> np.ndarray:
     if norm == 0.0:
         return np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float64)
     return quat / norm
+
+
+def _coerce_segmentation(segmentation: Any) -> np.ndarray:
+    if isinstance(segmentation, list):
+        if not segmentation:
+            raise ValueError("segmentation list is empty")
+        segmentation = segmentation[0]
+    if hasattr(segmentation, "mask"):
+        segmentation = segmentation.mask
+    return np.asarray(segmentation)
+
+
+def _select_contact_grasp_index(
+    *,
+    depth: np.ndarray,
+    intrinsics: np.ndarray,
+    segmentation: Any,
+    plan: GraspPlan,
+    camera_pose: np.ndarray | None,
+    fallback_index: int,
+) -> int:
+    """Prefer contact points near the segmented object while keeping score as a tiebreaker."""
+    try:
+        mask = _coerce_segmentation(segmentation).astype(bool)
+        depth_2d = np.asarray(depth)
+        if depth_2d.ndim == 3 and depth_2d.shape[-1] == 1:
+            depth_2d = depth_2d[:, :, 0]
+        valid = mask & np.isfinite(depth_2d) & (depth_2d > 0.05)
+        v, u = np.nonzero(valid)
+        if u.size == 0:
+            return fallback_index
+
+        z = depth_2d[v, u].astype(np.float64)
+        k = np.asarray(intrinsics, dtype=np.float64).reshape(3, 3)
+        x = (u.astype(np.float64) - k[0, 2]) * z / k[0, 0]
+        y = (v.astype(np.float64) - k[1, 2]) * z / k[1, 1]
+        centroid = np.column_stack([x, y, z]).mean(axis=0)
+        contacts = np.asarray(plan.contact_points, dtype=np.float64).reshape(-1, 3)
+        if camera_pose is not None:
+            pose = np.asarray(camera_pose, dtype=np.float64).reshape(4, 4)
+            contacts_h = np.column_stack([contacts, np.ones(contacts.shape[0])])
+            contacts = (pose @ contacts_h.T).T[:, :3]
+            centroid = (pose @ np.append(centroid, 1.0))[:3]
+
+        scores = np.asarray(plan.scores, dtype=np.float64).reshape(-1)
+        count = min(len(contacts), len(scores))
+        if count == 0:
+            return fallback_index
+        contacts = contacts[:count]
+        scores = scores[:count]
+        distances = np.linalg.norm(contacts - centroid, axis=1)
+        score_span = max(float(scores.max() - scores.min()), 1e-8)
+        normalized_scores = (scores - float(scores.min())) / score_span
+        return int(np.argmin(distances - 0.03 * normalized_scores))
+    except Exception:
+        return fallback_index
