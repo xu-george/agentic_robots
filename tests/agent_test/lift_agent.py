@@ -36,7 +36,7 @@ Action:
 
 LIFT_REVISION_GUIDANCE = (
     "Revise the lift code. Keep using the latest get_best_grasp_pose result, move to a "
-    "pregrasp above the executable grasp position, descend, close the gripper, then lift."
+    "pregrasp above the executable grasp position, descend, close the gripper, then lift object to a certain height."
 )
 
 

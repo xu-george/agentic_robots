@@ -95,6 +95,8 @@ def _start_service(
     log_handle = log_path.open("a", encoding="utf-8")
     env = os.environ.copy()
     env["PYTHONPATH"] = str(PROJECT_ROOT) + os.pathsep + env.get("PYTHONPATH", "")
+    for key, value in (service.get("env") or {}).items():
+        env[str(key)] = str(value)
     return subprocess.Popen(
         command,
         cwd=PROJECT_ROOT,

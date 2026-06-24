@@ -36,12 +36,20 @@ class GraspNetEngine:
         checkpoint_dir: str | None = None,
         vendor_root: str | None = None,
         config_overrides: list[str] | None = None,
+        device: str = "cuda",
     ) -> None:
         """Load the real Contact-GraspNet model.
 
         Defaults point at the existing CAP-X checkout so the first
         reimplementation can reuse its vendored model without copying it.
         """
+        if device.startswith("cuda"):
+            import torch
+
+            if torch.cuda.is_available():
+                device_index = int(device.split(":", 1)[1]) if ":" in device else 0
+                torch.cuda.set_device(device_index)
+
         vendor = Path(
             vendor_root
             or os.environ.get("GRASPNET_VENDOR_ROOT", "")
@@ -199,11 +207,12 @@ def main(
     port: int = 8115,
     checkpoint_dir: str | None = None,
     vendor_root: str | None = None,
+    device: str = "cuda",
 ) -> None:
     import uvicorn
 
     engine = GraspNetEngine()
-    engine.load(checkpoint_dir=checkpoint_dir, vendor_root=vendor_root)
+    engine.load(checkpoint_dir=checkpoint_dir, vendor_root=vendor_root, device=device)
     uvicorn.run(create_app(engine), host=host, port=port)
 
 
@@ -238,6 +247,7 @@ def _parse_args():
     parser.add_argument("--port", type=int, default=8115)
     parser.add_argument("--checkpoint-dir")
     parser.add_argument("--vendor-root")
+    parser.add_argument("--device", default="cuda")
     return parser.parse_args()
 
 
@@ -248,4 +258,5 @@ if __name__ == "__main__":
         port=args.port,
         checkpoint_dir=args.checkpoint_dir,
         vendor_root=args.vendor_root,
+        device=args.device,
     )

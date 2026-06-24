@@ -150,7 +150,7 @@ Lift with real Qwen, SAM3, GraspNet, and refreshed top-5 grasp markers:
 
 ```bash
 /home/user/miniforge3/envs/agentic_robotics/bin/python \
-  scripts/launch_services.py --services llm sam3 graspnet --detach --wait-s 180
+  scripts/launch_services.py --services llm sam3 graspnet --detach
 /home/user/miniforge3/envs/agentic_robotics/bin/python \
   tests/agent_test/lift_agent.py \
   --object screwdriver \

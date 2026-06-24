@@ -3,8 +3,10 @@ services:
     module: agentic_robots.services.sam3.server
     host: 127.0.0.1
     port: 8114
+    env:
+      CUDA_VISIBLE_DEVICES: "0"
     args:
-      device: cuda
+      device: cuda:0
     health_url: http://127.0.0.1:8114/health
     log_file: tests/service_tests/outputs/services/sam3.log
 
@@ -22,5 +24,9 @@ services:
     module: agentic_robots.services.graspnet.server
     host: 127.0.0.1
     port: 8115
+    env:
+      CUDA_VISIBLE_DEVICES: "1"
+    args:
+      device: cuda:0
     health_url: http://127.0.0.1:8115/health
     log_file: tests/service_tests/outputs/services/graspnet.log
