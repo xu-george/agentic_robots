@@ -91,7 +91,11 @@ class LiftEnv:
         body_id = self._create_ycb_object(config)
         self.object_ids = {config.name: body_id}
 
-        self.robot = FrankaSim(client_id=self.client_id, base_position=(0.0, 0.0, 0.0))
+        self.robot = FrankaSim(
+            client_id=self.client_id,
+            base_position=(0.0, 0.0, 0.0),
+            frame_recorder=self._record_frame,
+        )
         self.robot.load()
         self._update_camera_matrices()
         self.step_sim(120)

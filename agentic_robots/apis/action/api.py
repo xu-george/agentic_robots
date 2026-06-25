@@ -1,28 +1,18 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import numpy as np
 
 from agentic_robots.apis.base import ApiBase
 
-if TYPE_CHECKING:
-    from agentic_robots.envs.pybullet import StackingEnv
-
-
+# register the ActionApi class in the agentic_robots.apis.action module so that it can be imported from there
 class ActionApi(ApiBase):
-    """Low-level robot action API backed by the PyBullet FrankaSim robot."""
+    """Low-level action API backed directly by a robot object."""
 
-    def __init__( 
-        self,
-        env: "StackingEnv",
-        *,
-        grasp_distance_m: float = 0.12,
-    ) -> None:
-        self.env = env
-        self.grasp_distance_m = grasp_distance_m
-        self.last_grasp: dict[str, Any] | None = None
+    def __init__(self, robot: Any) -> None:
+        self.robot = robot
 
     def functions(self) -> dict[str, Callable[..., Any]]:
         return {
@@ -32,63 +22,32 @@ class ActionApi(ApiBase):
             "close_gripper": self.close_gripper,
         }
 
+    # tcp pose functions
     def get_end_effector_pose(self):
         """Return the current end-effector pose with position and quaternion_wxyz fields."""
         self._require_robot()
-        return self.env.robot.get_end_effector_pose()
+        return self.robot.get_end_effector_pose()
 
     def move_to_pose(
         self,
         position: np.ndarray,
         quaternion_wxyz: np.ndarray,
-        *,
-        plan_steps: int = 40,
-        sim_steps_per_waypoint: int = 4,
+        **kwargs,
     ) -> np.ndarray:
-        """Move the gripper to a target world pose using FrankaSim joint interpolation."""
+        """Move the gripper to a target world pose."""
         self._require_robot()
-        trajectory = self.env.robot.plan_to_pose(position, quaternion_wxyz, steps=plan_steps)
-        for waypoint in trajectory:
-            self.env.robot.move_to_joints(waypoint, steps=sim_steps_per_waypoint)
-            self.env._record_frame()
-        return trajectory
+        return self.robot.move_to_pose(position, quaternion_wxyz, **kwargs)
 
-    def open_gripper(self, *, steps: int = 60) -> None:
+    def open_gripper(self, **kwargs) -> None:
         """Open the Franka gripper."""
         self._require_robot()
-        self.env.robot.open_gripper(steps=steps)
-        self.env.step_sim(60)
+        self.robot.open_gripper(**kwargs)
 
-    def close_gripper(self, *, steps: int = 60) -> None:
-        """Close the Franka gripper and record nearest-object diagnostics."""
+    def close_gripper(self, **kwargs) -> None:
+        """Close the Franka gripper."""
         self._require_robot()
-        self.env.robot.close_gripper(steps=steps)
-        self._record_nearest_object()
-        self.env.step_sim(24)
-
-    def _record_nearest_object(self) -> None:
-        eef_position = self.env.robot.get_end_effector_pose().position
-        nearest_name = None
-        nearest_distance = float("inf")
-        nearest_position = None
-        for name in self.env.object_ids:
-            object_position = self.env.get_object_position(name)
-            distance = float(np.linalg.norm(object_position - eef_position))
-            if distance < nearest_distance:
-                nearest_name = name
-                nearest_distance = distance
-                nearest_position = object_position
-
-        self.last_grasp = {
-            "nearest_object": nearest_name,
-            "nearest_distance_m": round(nearest_distance, 4),
-            "grasp_distance_m": self.grasp_distance_m,
-            "eef_position": eef_position.round(4).tolist(),
-            "nearest_object_position": (
-                nearest_position.round(4).tolist() if nearest_position is not None else None
-            ),
-        }
+        self.robot.close_gripper(**kwargs)
 
     def _require_robot(self) -> None:
-        if self.env.robot is None:
-            raise RuntimeError("StackingEnv.reset() must be called before using ActionApi")
+        if self.robot is None:
+            raise RuntimeError("A loaded robot must be provided before using ActionApi")

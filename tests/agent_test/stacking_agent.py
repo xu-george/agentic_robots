@@ -67,7 +67,7 @@ def main() -> None:
         if args.record_video:
             video_path = env.start_video_recording(args.output_dir / "stacking_agent.mp4")
 
-        action_api = ActionApi(env)
+        action_api = ActionApi(env.robot)
         api_functions = {
             "get_observation": env.get_obs,
             "get_object_position": env.get_object_position,
@@ -84,7 +84,7 @@ def main() -> None:
                 "objects": make_scene_summary(env),
                 "goal": "red_cube centered above blue_cube",
             },
-            diagnostics_fn=lambda: _stacking_diagnostics(env, action_api),
+            diagnostics_fn=lambda: _stacking_diagnostics(env),
             revision_guidance=STACKING_REVISION_GUIDANCE,
             fallback_code=_fallback_stacking_code(),
         )
@@ -124,7 +124,7 @@ def main() -> None:
         env.close()
 
 
-def _stacking_diagnostics(env, action_api) -> dict[str, object]:
+def _stacking_diagnostics(env) -> dict[str, object]:
     from agentic_robots.agent import make_robot_diagnostics
 
     red = env.get_object_position("red_cube")
@@ -135,7 +135,6 @@ def _stacking_diagnostics(env, action_api) -> dict[str, object]:
             "blue_cube": blue.round(4).tolist(),
         },
         "robot": make_robot_diagnostics(env),
-        "last_grasp": action_api.last_grasp,
         "xy_error_m": round(float(np.linalg.norm(red[:2] - blue[:2])), 4),
         "z_delta_m": round(float(red[2] - blue[2]), 4),
         "task_success": env.is_success(),
@@ -149,13 +148,13 @@ blue = get_object_position("blue_cube")
 pose = get_end_effector_pose()
 open_gripper()
 move_to_pose(red + [0.0, 0.0, 0.14], pose.quaternion_wxyz)
-move_to_pose(red + [0.0, 0.0, 0.035], pose.quaternion_wxyz)
-close_gripper()
-move_to_pose(red + [0.0, 0.0, 0.18], pose.quaternion_wxyz)
-move_to_pose(blue + [0.0, 0.0, 0.18], pose.quaternion_wxyz)
-move_to_pose(blue + [0.0, 0.0, 0.09], pose.quaternion_wxyz)
-open_gripper()
-move_to_pose(blue + [0.0, 0.0, 0.18], pose.quaternion_wxyz)
+move_to_pose(red + [0.0, 0.0, 0.02], pose.quaternion_wxyz, plan_steps=50, sim_steps_per_waypoint=6)
+close_gripper(steps=120)
+move_to_pose(red + [0.0, 0.0, 0.20], pose.quaternion_wxyz, plan_steps=60, sim_steps_per_waypoint=6)
+move_to_pose(blue + [0.0, 0.0, 0.20], pose.quaternion_wxyz, plan_steps=60, sim_steps_per_waypoint=6)
+move_to_pose(blue + [0.0, 0.0, 0.095], pose.quaternion_wxyz, plan_steps=50, sim_steps_per_waypoint=6)
+open_gripper(steps=120)
+move_to_pose(blue + [0.0, 0.0, 0.20], pose.quaternion_wxyz, plan_steps=50, sim_steps_per_waypoint=6)
 print("stacking fallback success", is_success())
 """.strip()
 

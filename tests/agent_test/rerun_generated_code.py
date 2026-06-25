@@ -65,7 +65,7 @@ def _run_stacking(code: str, args) -> dict[str, object]:
                 DEFAULT_OUTPUT_ROOT / "stacking_agent" / "rerun_generated_code.mp4"
             )
 
-        action_api = ActionApi(env)
+        action_api = ActionApi(env.robot)
         api_functions = {
             "get_observation": env.get_obs,
             "get_object_position": env.get_object_position,
@@ -113,7 +113,7 @@ def _run_lift(code: str, args) -> dict[str, object]:
         if perception_api is None:
             perception_api = PerceptionApi(observation_provider=env.get_obs)
 
-        action_api = ActionApi(env)
+        action_api = ActionApi(env.robot)
         api_functions = perception_api.functions()
         api_functions.update(action_api.functions())
         runtime = AgentRuntime(api_functions).run(code)

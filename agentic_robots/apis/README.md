@@ -36,10 +36,10 @@ and lower-level robot actions used by task code.
 
 ## Action
 
-`agentic_robots.apis.action.ActionApi` wraps the current PyBullet `FrankaSim`
-robot controls. The real Franka low-level backend lives in
-`agentic_robots.envs.real.FrankaReal`; the real action API will be added here
-later.
+`agentic_robots.apis.action.ActionApi` wraps a robot object directly. The same
+thin API can call the PyBullet `FrankaSim` backend or the real Franka backend in
+`agentic_robots.envs.real.FrankaReal`, as long as the robot exposes the action
+methods below.
 
 Exposed functions:
 

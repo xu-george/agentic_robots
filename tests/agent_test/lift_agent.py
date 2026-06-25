@@ -87,7 +87,7 @@ def main() -> None:
         if perception_api is None:
             perception_api = PerceptionApi(observation_provider=env.get_obs)
 
-        action_api = ActionApi(env)
+        action_api = ActionApi(env.robot)
         api_functions = perception_api.functions()
         api_functions.update(action_api.functions())
         config = CodeAgentConfig(
@@ -103,7 +103,6 @@ def main() -> None:
             diagnostics_fn=lambda: {
                 "objects": make_scene_summary(env),
                 "robot": make_robot_diagnostics(env),
-                "last_grasp": action_api.last_grasp,
             },
             revision_guidance=LIFT_REVISION_GUIDANCE,
             fallback_code=_fallback_lift_code(object_prompt),
@@ -220,7 +219,7 @@ class PybulletLiftPerceptionApi:
 
         plan = self.plan_grasp(depth, intrinsics, segmentation)
         position, _ = self.env.get_object_pose(self.env.object_name)
-        grasp_position = position + np.array([0.0, 0.0, 0.04], dtype=np.float64)
+        grasp_position = position + np.array([0.0, 0.0, 0.004], dtype=np.float64)
         orientation_wxyz = self.env.robot.get_end_effector_pose().quaternion_wxyz
         transform = np.eye(4, dtype=np.float64)
         transform[:3, 3] = grasp_position

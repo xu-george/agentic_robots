@@ -75,6 +75,7 @@ class CodeAgent:
 
         while llm_used and not attempts[-1].task_success and len(attempts) < self.max_attempts:
             code = self._revise_code(task_description, attempts[-1])
+            self._reset_env_for_retry()
             attempts.append(self._run_attempt(code))
 
         final_attempt = attempts[-1]
@@ -145,6 +146,11 @@ class CodeAgent:
         if self.config.diagnostics_fn is None:
             return None
         return self.config.diagnostics_fn()
+
+    def _reset_env_for_retry(self) -> None:
+        reset = getattr(self.env, "reset", None)
+        if callable(reset):
+            reset()
 
 
 def make_scene_summary(env: Any) -> dict[str, dict[str, Any]]:

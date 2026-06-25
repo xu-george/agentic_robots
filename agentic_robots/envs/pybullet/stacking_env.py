@@ -91,7 +91,11 @@ class StackingEnv:
             ),
         }
 
-        self.robot = FrankaSim(client_id=self.client_id, base_position=(0.0, 0.0, 0.0))
+        self.robot = FrankaSim(
+            client_id=self.client_id,
+            base_position=(0.0, 0.0, 0.0),
+            frame_recorder=self._record_frame,
+        )
         self.robot.load()
         self._update_camera_matrices()
         self.step_sim(60)
@@ -318,13 +322,6 @@ class StackingEnv:
         near = self.camera.near
         far = self.camera.far
         return far * near / (far - (far - near) * depth_buffer)
-
-    def _move_to_pose_recorded(self, position: np.ndarray, quaternion_wxyz: np.ndarray) -> None:
-        self._require_robot()
-        trajectory = self.robot.plan_to_pose(position, quaternion_wxyz, steps=40)
-        for waypoint in trajectory:
-            self.robot.move_to_joints(waypoint, steps=4)
-            self._record_frame()
 
     def _record_frame(self) -> None:
         if self._video_writer is None:

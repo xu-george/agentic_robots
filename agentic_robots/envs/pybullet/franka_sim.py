@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import numpy as np
@@ -36,11 +37,13 @@ class FrankaSim:
         base_position: tuple[float, float, float] = (0.0, 0.0, 0.0),
         base_orientation_xyzw: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0),
         use_fixed_base: bool = True,
+        frame_recorder: Callable[[], None] | None = None,
     ) -> None:
         self.client_id = client_id
         self.base_position = base_position
         self.base_orientation_xyzw = base_orientation_xyzw
         self.use_fixed_base = use_fixed_base
+        self.frame_recorder = frame_recorder
         self.body_id: int | None = None
         self.home_joints = np.array(
             [0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0.785],
@@ -197,6 +200,8 @@ class FrankaSim:
             p.stepSimulation(physicsClientId=self.client_id)
             if sleep_s > 0.0:
                 time.sleep(sleep_s)
+        if self.frame_recorder is not None:
+            self.frame_recorder()
 
     def _set_gripper(self, *, width: float, steps: int) -> None:
         self._require_loaded()
