@@ -1,0 +1,17 @@
+host: 172.16.0.2
+
+motion:
+  default_duration_s: 5.0
+  max_translation_m: 0.05
+  orientation_tolerance: 0.005
+
+workspace:
+  x: [0.20, 0.80]
+  y: [-0.45, 0.45]
+  z: [0.20, 0.80]
+
+# TCP exposed by FrankaReal. This matches the PyBullet panda_grasptarget link:
+# panda_hand + [0, 0, 0.105]. The bridge applies this in the current EE frame,
+# so the reported/checked point follows the hand orientation.
+tcp:
+  offset_from_ee: [0.0, 0.0, 0.105]

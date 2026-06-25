@@ -14,6 +14,8 @@ DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "tests" / "agent_test" / "outputs" / "stacki
 
 STACKING_SYSTEM_PROMPT = """You write short Python robot task programs.
 Use only the provided action and scene functions. Do not import modules.
+get_end_effector_pose() returns a FrankaPose object, not a dict.
+Use pose.position and pose.quaternion_wxyz; never use pose["position"] or pose["quaternion_wxyz"].
 Positions are usually numpy arrays, so vector addition with small offset lists is allowed.
 Return only executable Python code, no markdown, no explanation.
 """
@@ -24,6 +26,7 @@ STACKING_API_DESCRIPTION = """Scene:
 - is_success() -> whether red cube is stacked on blue cube
 Action:
 - get_end_effector_pose() -> current robot pose with position and quaternion_wxyz
+  Access these as pose.position and pose.quaternion_wxyz, not pose["position"].
 - move_to_pose(position, quaternion_wxyz, plan_steps=40, sim_steps_per_waypoint=4)
 - open_gripper()
 - close_gripper()
@@ -31,7 +34,8 @@ Action:
 
 STACKING_REVISION_GUIDANCE = (
     "Revise the stacking code. Approach the red cube from above, close the gripper, "
-    "lift, move over the blue cube, lower to stack height, then open the gripper."
+    "lift, move over the blue cube, lower to stack height, then open the gripper. "
+    "Use get_end_effector_pose().quaternion_wxyz with dot access, not dict access."
 )
 
 

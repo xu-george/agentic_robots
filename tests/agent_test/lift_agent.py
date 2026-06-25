@@ -16,9 +16,10 @@ DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "tests" / "agent_test" / "outputs" / "lift_a
 DEFAULT_OBJECT_CONFIG = PROJECT_ROOT / "configs" / "lift_objects.yaml"
 
 LIFT_SYSTEM_PROMPT = """You write short Python robot task programs.
-Use only the provided perception and action functions. Do not import modules.
-Use get_best_grasp_pose(...) to get a grasp object, then command the robot with
-grasp.position and grasp.quaternion_wxyz. Do not treat the grasp as a dict.
+Use only the provided perception and action functions. Do not import modules or define helper functions.
+get_best_grasp_pose(...) returns a grasp object, not a dict.
+Use grasp.position and grasp.quaternion_wxyz; never use grasp["position"] or grasp["quaternion_wxyz"].
+Positions are usually numpy arrays, so vector addition with small offset lists is allowed.
 Return only executable Python code, no markdown, no explanation.
 """
 
@@ -35,8 +36,10 @@ Action:
 """
 
 LIFT_REVISION_GUIDANCE = (
-    "Revise the lift code. Keep using the latest get_best_grasp_pose result, move to a "
-    "pregrasp above the executable grasp position, descend, close the gripper, then lift object to a certain height."
+    "Revise the lift code. Use the same grasp result. "
+    "Do this sequence: open gripper, move above grasp, move to grasp, "
+    "close gripper, then move upward to lift. "
+    "Do not import modules or stop after closing the gripper."
 )
 
 

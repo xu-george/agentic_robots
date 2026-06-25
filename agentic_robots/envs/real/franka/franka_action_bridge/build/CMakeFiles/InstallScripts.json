@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/user/Documents/Code/agentic_robots/agentic_robots/envs/real/franka/franka_action_bridge/build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

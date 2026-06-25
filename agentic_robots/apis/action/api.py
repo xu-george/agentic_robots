@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from agentic_robots.apis.base import ApiBase
-from agentic_robots.envs.pybullet import StackingEnv
+
+if TYPE_CHECKING:
+    from agentic_robots.envs.pybullet import StackingEnv
 
 
 class ActionApi(ApiBase):
@@ -14,7 +16,7 @@ class ActionApi(ApiBase):
 
     def __init__( 
         self,
-        env: StackingEnv,
+        env: "StackingEnv",
         *,
         grasp_distance_m: float = 0.12,
     ) -> None:

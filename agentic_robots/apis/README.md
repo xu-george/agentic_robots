@@ -37,7 +37,9 @@ and lower-level robot actions used by task code.
 ## Action
 
 `agentic_robots.apis.action.ActionApi` wraps the current PyBullet `FrankaSim`
-robot controls.
+robot controls. The real Franka low-level backend lives in
+`agentic_robots.envs.real.FrankaReal`; the real action API will be added here
+later.
 
 Exposed functions:
 
@@ -51,3 +53,30 @@ close_gripper
 The action API intentionally does not expose task-level shortcuts such as
 `pick_object` or `place_object_on`. The agent must compose those behaviors from
 lower-level robot actions.
+
+Build the real bridge from the repository root:
+
+```bash
+cmake -S agentic_robots/envs/real/franka/franka_action_bridge \
+  -B agentic_robots/envs/real/franka/franka_action_bridge/build \
+  -DFranka_DIR=third_party/libfranka/build
+cmake --build agentic_robots/envs/real/franka/franka_action_bridge/build
+```
+
+Real Franka runtime safety values live in:
+
+```text
+configs/franka_real.yaml
+```
+
+The Python `FrankaReal` wrapper reads that file and passes the configured
+workspace bounds to the C++ bridge for every `move-relative` call. The same
+file also defines `tcp.offset_from_ee`, which is applied in the current
+end-effector frame so real `get_end_effector_pose()` returns the same logical
+grasp target point used by the PyBullet `panda_grasptarget` link.
+
+Read-only real backend test:
+
+```bash
+python tests/api_test/franka_real_hardware_sequence.py
+```
