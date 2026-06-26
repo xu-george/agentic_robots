@@ -7,8 +7,8 @@ service clients the same way the future API layer will.
 Use the project conda environment:
 
 ```bash
-cd /home/binzhao/Documents/Code/agentic_robots
-conda activate agentic_robot
+cd /home/user/Documents/Code/agentic_robots
+conda activate agentic_robotics
 ```
 
 ## API Tests
@@ -98,23 +98,23 @@ cd /home/user/Documents/Code/agentic_robots
 The SAM3 package is vendored inside this project:
 
 ```text
-sam3 -> /home/binzhao/Documents/Code/agentic_robots/third_party/sam3/sam3
+sam3 -> /home/user/Documents/Code/agentic_robots/third_party/sam3/sam3
 ```
 
 Start the SAM3 service in one terminal:
 
 ```bash
-cd /home/binzhao/Documents/Code/agentic_robots
-conda activate agentic_robots
-python -m agentic_robots.services.sam3.server --device cuda --port 8114
+cd /home/user/Documents/Code/agentic_robots
+/home/user/miniforge3/envs/agentic_robotics/bin/python \
+  -m agentic_robots.services.sam3.server --device cuda --port 8114
 ```
 
 Run segmentation from another terminal:
 
 ```bash
-cd /home/binzhao/Documents/Code/agentic_robots
-conda activate agentic_robot
-python tests/service_tests/sam3_segment.py /path/to/image.png "banana"
+cd /home/user/Documents/Code/agentic_robots
+/home/user/miniforge3/envs/agentic_robotics/bin/python \
+  tests/service_tests/sam3_segment.py /path/to/image.png "banana"
 ```
 
 Outputs are written to:
@@ -142,8 +142,47 @@ gio trash tests/service_tests/outputs/sam3_segment/results.json \
 
 ## RealSense Example
 
-A RealSense frame was captured through OpenCV because `pyrealsense2` is not
-installed in this environment. The current saved frame is:
+RealSense support runs from the same `agentic_robotics` environment as the rest
+of the robot stack. The environment includes `pyrealsense2`, GUI-enabled OpenCV,
+SAM3, GraspNet, PyBullet, and Torch/CUDA.
+
+Quick RealSense SDK check:
+
+```bash
+cd /home/user/Documents/Code/agentic_robots
+/home/user/miniforge3/envs/agentic_robotics/bin/python - <<'PY'
+import pyrealsense2 as rs
+
+ctx = rs.context()
+devices = ctx.query_devices()
+print("device_count", len(devices))
+for index, device in enumerate(devices):
+    print(index, device.get_info(rs.camera_info.name), device.get_info(rs.camera_info.serial_number))
+PY
+```
+
+Capture one color frame through the RealSense SDK:
+
+```bash
+/home/user/miniforge3/envs/agentic_robotics/bin/python - <<'PY'
+import pyrealsense2 as rs
+
+pipeline = rs.pipeline()
+config = rs.config()
+config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+pipeline.start(config)
+try:
+    frames = None
+    for _ in range(30):
+        frames = pipeline.wait_for_frames(2000)
+    color = frames.get_color_frame()
+    print("color_frame", color.get_width(), color.get_height(), color.get_profile().fps())
+finally:
+    pipeline.stop()
+PY
+```
+
+The current saved frame is:
 
 ```text
 tests/service_tests/outputs/realsense_capture/current_realsense.jpg
@@ -152,9 +191,9 @@ tests/service_tests/outputs/realsense_capture/current_realsense.jpg
 Run SAM3 on that captured frame:
 
 ```bash
-cd /home/binzhao/Documents/Code/agentic_robots
-conda activate agentic_robot
-python tests/service_tests/sam3_segment.py \
+cd /home/user/Documents/Code/agentic_robots
+/home/user/miniforge3/envs/agentic_robotics/bin/python \
+  tests/service_tests/sam3_segment.py \
   tests/service_tests/outputs/realsense_capture/current_realsense.jpg \
   "banana"
 ```
@@ -175,9 +214,9 @@ color stream exposed as a Linux video device. Start the SAM3 service first, then
 run a short live segmentation test from another terminal:
 
 ```bash
-cd /home/binzhao/Documents/Code/agentic_robots
-conda activate agentic_robot
-python tests/service_tests/sam3_live_segment.py "banana" \
+cd /home/user/Documents/Code/agentic_robots
+/home/user/miniforge3/envs/agentic_robotics/bin/python \
+  tests/service_tests/sam3_live_segment.py "banana" \
   --frames 10 \
   --segment-every 5 \
   --segment-width 640
@@ -186,13 +225,15 @@ python tests/service_tests/sam3_live_segment.py "banana" \
 Run continuously until `Ctrl-C`:
 
 ```bash
-python tests/service_tests/sam3_live_segment.py "banana"
+/home/user/miniforge3/envs/agentic_robotics/bin/python \
+  tests/service_tests/sam3_live_segment.py "banana"
 ```
 
 Show a live OpenCV overlay window:
 
 ```bash
-python tests/service_tests/sam3_live_segment.py "banana" \
+/home/user/miniforge3/envs/agentic_robotics/bin/python \
+  tests/service_tests/sam3_live_segment.py "banana" \
   --display \
   --track \
   --segment-every 5 \
@@ -209,8 +250,8 @@ Add `--track` for smoother interactive viewing. In this mode SAM3 refreshes the
 mask every `--segment-every` frames, then OpenCV tracks that object between SAM3
 refreshes and renders an approximate tracked mask on every camera frame.
 
-`--display` requires a GUI-enabled OpenCV build. The `agentic_robot`
-environment must use `opencv-python`, not `opencv-python-headless`, because the
+`--display` requires a GUI-enabled OpenCV build. The `agentic_robotics`
+environment uses `opencv-python`, not `opencv-python-headless`, because the
 headless package cannot open `cv2.imshow` windows.
 
 If you want to force a specific RealSense video node, add `--camera-index 2`
@@ -554,10 +595,9 @@ tests/service_tests/outputs/sam3_video_tracking/
 Quick checks:
 
 ```bash
-cd /home/binzhao/Documents/Code/agentic_robots
-conda activate agentic_robot
-python -m compileall -q agentic_robots tests
-python -m agentic_robots.services.sam3.server --help
-python tests/service_tests/sam3_segment.py --help
-python tests/service_tests/sam3_live_segment.py --help
+cd /home/user/Documents/Code/agentic_robots
+/home/user/miniforge3/envs/agentic_robotics/bin/python -m compileall -q agentic_robots tests
+/home/user/miniforge3/envs/agentic_robotics/bin/python -m agentic_robots.services.sam3.server --help
+/home/user/miniforge3/envs/agentic_robotics/bin/python tests/service_tests/sam3_segment.py --help
+/home/user/miniforge3/envs/agentic_robotics/bin/python tests/service_tests/sam3_live_segment.py --help
 ```

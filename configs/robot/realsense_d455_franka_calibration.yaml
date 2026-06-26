@@ -1,0 +1,60 @@
+calibration:
+  name: realsense_d455_franka_base
+  created_date: '2026-06-25'
+  type: static_camera_eye_to_hand
+  source_files:
+    intrinsics: /home/user/Documents/Code/franka_ws/camera_calibration/calibrations/realsense_d455_intrinsics.yaml
+    extrinsics: /home/user/Documents/Code/franka_ws/camera_calibration/calibrations/realsense_d455_to_franka_base.yaml
+  validation:
+    result_file: /home/user/Documents/Code/franka_ws/camera_calibration/calibrations/validation/marker_to_robot_validation.yaml
+    target_error_norm_m: 0.000358
+
+camera:
+  name: Intel RealSense D455
+  serial: '213622250944'
+  firmware_version: 5.17.0.10
+  width: 640
+  height: 480
+  depth_scale_m: 0.0010000000474974513
+  intrinsics:
+    fx: 385.5448913574219
+    fy: 384.96514892578125
+    cx: 325.62274169921875
+    cy: 243.25283813476562
+    matrix:
+      - [385.5448913574219, 0.0, 325.62274169921875]
+      - [0.0, 384.96514892578125, 243.25283813476562]
+      - [0.0, 0.0, 1.0]
+    distortion_model: distortion.inverse_brown_conrady
+    coeffs:
+      - -0.05666064843535423
+      - 0.06905025243759155
+      - -0.00007197983359219506
+      - 0.0007469023112207651
+      - -0.02255089581012726
+
+extrinsics:
+  convention: camera_optical_to_franka_base
+  matrix:
+    - [-0.9999131609211629, -0.005265866345577007, 0.012080615393320525, 0.4542861180402147]
+    - [-0.01103526779929921, 0.8356651703903422, -0.5491283509900744, 0.49679602838755516]
+    - [-0.007203713018198558, -0.5492139780159562, -0.8356507122420481, 0.5533554005379545]
+    - [0.0, 0.0, 0.0, 1.0]
+  solver:
+    source_samples: calibrations/aruco_eye_to_hand_samples.jsonl
+    sample_count: 20
+    method: DANIILIDIS
+    marker_translation_rms_m: 0.005635127304735552
+
+# Convenience aliases for code paths that expect generic observation keys.
+intrinsics:
+  - [385.5448913574219, 0.0, 325.62274169921875]
+  - [0.0, 384.96514892578125, 243.25283813476562]
+  - [0.0, 0.0, 1.0]
+camera_pose:
+  convention: camera_optical_to_franka_base
+  matrix:
+    - [-0.9999131609211629, -0.005265866345577007, 0.012080615393320525, 0.4542861180402147]
+    - [-0.01103526779929921, 0.8356651703903422, -0.5491283509900744, 0.49679602838755516]
+    - [-0.007203713018198558, -0.5492139780159562, -0.8356507122420481, 0.5533554005379545]
+    - [0.0, 0.0, 0.0, 1.0]

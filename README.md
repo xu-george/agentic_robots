@@ -102,7 +102,8 @@ It lives at:
 ```
 
 This environment was cloned from CAP-X's working environment so it already has
-the GPU stack and editable SAM3 package available.
+the GPU stack, editable SAM3 package, PyBullet, OpenCV, and RealSense Python
+bindings available.
 
 Useful checks:
 
@@ -110,13 +111,25 @@ Useful checks:
 python - <<'PY'
 import importlib.util
 import torch
+import pyrealsense2 as rs
 
 print("agentic_robots:", importlib.util.find_spec("agentic_robots").origin)
 print("sam3:", importlib.util.find_spec("sam3").origin)
 print("torch:", torch.__version__)
 print("cuda:", torch.cuda.is_available())
+print("realsense devices:", len(rs.context().query_devices()))
 PY
 ```
+
+The RealSense dependency is installed directly in this same environment:
+
+```text
+pyrealsense2==2.58.2.10647
+```
+
+The old separate RealSense virtualenv is no longer needed for normal sensor
+work; use `/home/user/miniforge3/envs/agentic_robotics/bin/python` for robot,
+perception, simulation, and RealSense commands.
 
 Start the SAM3 service directly:
 
@@ -231,7 +244,7 @@ motion:
 workspace:
   x: [0.20, 0.80]
   y: [-0.45, 0.45]
-  z: [0.20, 0.80]
+  z: [0.02, 0.50]
 
 tcp:
   offset_from_ee: [0.0, 0.0, 0.105]
@@ -262,6 +275,33 @@ run a small guarded real-motion test:
 Real motion is disabled by default in `FrankaReal`. Code must explicitly
 construct it with `motion_enabled=True`, and bridge-side workspace limits still
 guard every Cartesian move.
+
+After saving camera calibration under `configs/robot/`, check the RealSense to
+Franka-base calibration with the ArUco marker script. The default mode is
+read-only: it detects marker id `4`, transforms the marker center into the
+Franka base frame, computes a TCP target `5 cm` above the marker, writes an
+overlay/result file, and reports whether the target path is inside the bridge
+workspace:
+
+```bash
+cd /home/user/Documents/Code/agentic_robots
+/home/user/miniforge3/envs/agentic_robotics/bin/python \
+  tests/api_test/franka_marker_calibration_check.py \
+  --host 172.16.0.2
+```
+
+Only run the motion version after the marker target is inside the configured
+workspace, the area is clear, and the user stop is reachable. This closes the
+gripper, then moves the Franka TCP/fingertip target to `5 cm` above the marker:
+
+```bash
+/home/user/miniforge3/envs/agentic_robotics/bin/python \
+  tests/api_test/franka_marker_calibration_check.py \
+  --host 172.16.0.2 \
+  --execute-real \
+  --confirm-clear-workspace \
+  --target-clearance-m 0.05
+```
 
 Minimal real-backend usage:
 

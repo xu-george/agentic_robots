@@ -62,6 +62,8 @@ class FrankaRealConfig:
     default_motion_duration_s: float
     max_translation_m: float
     orientation_tolerance: float
+    home_joint_duration_s: float
+    home_joint_positions: tuple[float, float, float, float, float, float, float]
     workspace: FrankaWorkspaceLimits
     tcp: FrankaTcpConfig
 
@@ -180,6 +182,41 @@ class FrankaReal:
         }
         return target_position[None, :]
 
+    def move_to_joints(
+        self,
+        joint_positions: np.ndarray,
+        *,
+        duration_s: float | None = None,
+    ) -> FrankaPose:
+        self._require_motion_enabled()
+        target_joints = np.asarray(joint_positions, dtype=np.float64).reshape(7)
+        duration = self.default_motion_duration_s if duration_s is None else float(duration_s)
+        if not 2.0 <= duration <= 20.0:
+            raise ValueError("duration_s must be in [2.0, 20.0]")
+
+        result = self._run_json(
+            "joint-move",
+            *(f"{value:.9f}" for value in target_joints),
+            f"{duration:.3f}",
+            *self.tcp.bridge_args(),
+        )
+        pose = FrankaPose(
+            position=np.asarray(result["position"], dtype=np.float64),
+            quaternion_wxyz=_normalize_quaternion(np.asarray(result["quaternion_wxyz"])),
+        )
+        self.last_command = {
+            "command": "move_to_joints",
+            "target_joint_positions": target_joints.tolist(),
+            "final_position": pose.position.tolist(),
+            "duration_s": duration,
+        }
+        return pose
+
+    def move_home(self, *, duration_s: float | None = None) -> FrankaPose:
+        config = load_franka_real_config()
+        duration = config.home_joint_duration_s if duration_s is None else duration_s
+        return self.move_to_joints(np.asarray(config.home_joint_positions), duration_s=duration)
+
     def open_gripper(self, *, width_m: float = OPEN_WIDTH_M) -> FrankaGripperState:
         self._require_motion_enabled()
         payload = self._run_json(
@@ -291,6 +328,8 @@ def load_franka_real_config(config_path: str | Path = DEFAULT_CONFIG_PATH) -> Fr
         default_motion_duration_s=float(motion["default_duration_s"]),
         max_translation_m=float(motion["max_translation_m"]),
         orientation_tolerance=float(motion["orientation_tolerance"]),
+        home_joint_duration_s=float(motion.get("home_joint_duration_s", 8.0)),
+        home_joint_positions=_read_vector7(data.get("home") or {}, "joint_positions"),
         workspace=FrankaWorkspaceLimits(
             x=_read_limits(workspace, "x"),
             y=_read_limits(workspace, "y"),
@@ -323,6 +362,16 @@ def _read_vector3(data: dict[str, object], key: str) -> tuple[float, float, floa
     if not isinstance(raw_value, list | tuple) or len(raw_value) != 3:
         raise ValueError(f"tcp.{key} must be a three-value [x, y, z] list")
     return (float(raw_value[0]), float(raw_value[1]), float(raw_value[2]))
+
+
+def _read_vector7(
+    data: dict[str, object],
+    key: str,
+) -> tuple[float, float, float, float, float, float, float]:
+    raw_value = data.get(key)
+    if not isinstance(raw_value, list | tuple) or len(raw_value) != 7:
+        raise ValueError(f"home.{key} must be a seven-value joint position list")
+    return tuple(float(value) for value in raw_value)  # type: ignore[return-value]
 
 
 def _normalize_quaternion(quaternion: np.ndarray) -> np.ndarray:

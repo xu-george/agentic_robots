@@ -72,7 +72,6 @@ class LiftEnv:
 
     def reset(self) -> dict[str, Any]:
         """Create the PyBullet world, robot, table, and configured YCB object."""
-        self.close()
         config = self._load_object_config()
         if config.camera is not None and not self._camera_overridden:
             self.camera = config.camera
@@ -80,6 +79,15 @@ class LiftEnv:
                 intrinsics=self._compute_intrinsics(),
                 extrinsics=np.eye(4, dtype=np.float64),
             )
+        if self._can_reset_scene_in_place(config.name):
+            self.clear_debug_items()
+            self.robot.reset()
+            self._reset_body_pose(body_id=self.object_ids[config.name], config=config)
+            self.step_sim(120)
+            self.object_start_z = float(self.get_object_position(config.name)[2])
+            return self.get_obs()
+
+        self.close()
         self.client_id = p.connect(p.GUI if self.gui else p.DIRECT)
         p.setAdditionalSearchPath(pybullet_data.getDataPath(), physicsClientId=self.client_id)
         p.resetSimulation(physicsClientId=self.client_id)
@@ -503,6 +511,29 @@ class LiftEnv:
             physicsClientId=self.client_id,
         )
         return body_id
+
+    def _can_reset_scene_in_place(self, object_name: str) -> bool:
+        return bool(
+            self.gui
+            and self.client_id is not None
+            and p.isConnected(self.client_id)
+            and self.robot is not None
+            and object_name in self.object_ids
+        )
+
+    def _reset_body_pose(self, *, body_id: int, config: LiftObjectConfig) -> None:
+        p.resetBasePositionAndOrientation(
+            body_id,
+            config.position,
+            config.orientation_xyzw,
+            physicsClientId=self.client_id,
+        )
+        p.resetBaseVelocity(
+            body_id,
+            linearVelocity=(0.0, 0.0, 0.0),
+            angularVelocity=(0.0, 0.0, 0.0),
+            physicsClientId=self.client_id,
+        )
 
     def _compute_intrinsics(self) -> np.ndarray:
         f = 0.5 * self.camera.height / np.tan(0.5 * np.deg2rad(self.camera.fov_deg))

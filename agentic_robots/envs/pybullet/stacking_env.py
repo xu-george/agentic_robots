@@ -60,6 +60,14 @@ class StackingEnv:
 
     def reset(self) -> dict[str, Any]:
         """Create the PyBullet world, robot, table, and stacking cubes."""
+        if self._can_reset_scene_in_place():
+            red_position, blue_position = self._sample_cube_positions()
+            self.robot.reset()
+            self._reset_body_pose(self.object_ids["red_cube"], red_position)
+            self._reset_body_pose(self.object_ids["blue_cube"], blue_position)
+            self.step_sim(60)
+            return self.get_obs()
+
         self.close()
         self.client_id = p.connect(p.GUI if self.gui else p.DIRECT)
         p.setAdditionalSearchPath(pybullet_data.getDataPath(), physicsClientId=self.client_id)
@@ -322,6 +330,34 @@ class StackingEnv:
         near = self.camera.near
         far = self.camera.far
         return far * near / (far - (far - near) * depth_buffer)
+
+    def _can_reset_scene_in_place(self) -> bool:
+        return bool(
+            self.gui
+            and self.client_id is not None
+            and p.isConnected(self.client_id)
+            and self.robot is not None
+            and {"red_cube", "blue_cube"} <= set(self.object_ids)
+        )
+
+    def _reset_body_pose(
+        self,
+        body_id: int,
+        position: tuple[float, float, float],
+        orientation_xyzw: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0),
+    ) -> None:
+        p.resetBasePositionAndOrientation(
+            body_id,
+            position,
+            orientation_xyzw,
+            physicsClientId=self.client_id,
+        )
+        p.resetBaseVelocity(
+            body_id,
+            linearVelocity=(0.0, 0.0, 0.0),
+            angularVelocity=(0.0, 0.0, 0.0),
+            physicsClientId=self.client_id,
+        )
 
     def _record_frame(self) -> None:
         if self._video_writer is None:

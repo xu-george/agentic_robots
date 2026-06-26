@@ -4,14 +4,19 @@ motion:
   default_duration_s: 5.0
   max_translation_m: 0.05
   orientation_tolerance: 0.005
+  home_joint_duration_s: 8.0
+
+home:
+  # Panda ready/home pose with fingertips pointing down.
+  joint_positions: [0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0.785]
 
 workspace:
   x: [0.20, 0.80]
   y: [-0.45, 0.45]
-  z: [0.20, 0.80]
+  z: [0.02, 0.50]
 
-# TCP exposed by FrankaReal. This matches the PyBullet panda_grasptarget link:
-# panda_hand + [0, 0, 0.105]. The bridge applies this in the current EE frame,
-# so the reported/checked point follows the hand orientation.
+# TCP exposed by FrankaReal. Use the libfranka end-effector frame directly for
+# this real calibration check; the previous [0, 0, 0.105] virtual offset did not
+# match the visible fingertip/table height on the current gripper setup.
 tcp:
-  offset_from_ee: [0.0, 0.0, 0.105]
+  offset_from_ee: [0.0, 0.0, 0.0]

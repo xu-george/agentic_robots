@@ -82,6 +82,14 @@ Vector3 parse_tcp_offset(int first_index, int argc, char** argv) {
   };
 }
 
+std::array<double, 7> parse_joint_positions(int first_index, char** argv) {
+  std::array<double, 7> joints{};
+  for (size_t i = 0; i < joints.size(); ++i) {
+    joints[i] = parse_double(argv[first_index + static_cast<int>(i)], "joint_position");
+  }
+  return joints;
+}
+
 Vector3 transform_point(const std::array<double, 16>& transform, const Vector3& point) {
   return Vector3{
       transform[12] + transform[0] * point.x + transform[4] * point.y + transform[8] * point.z,
@@ -252,6 +260,50 @@ void command_move_relative(const char* host, int argc, char** argv) {
   print_pose_json(final_pose, tcp_offset_ee);
 }
 
+void command_joint_move(const char* host, int argc, char** argv) {
+  if (argc != 14) {
+    throw std::runtime_error(
+        "joint-move usage: <host> joint-move <q0> <q1> <q2> <q3> <q4> <q5> <q6> "
+        "<duration_s> <tcp_offset_x> <tcp_offset_y> <tcp_offset_z>");
+  }
+
+  const std::array<double, 7> q_goal = parse_joint_positions(3, argv);
+  const double duration = parse_double(argv[10], "duration_s");
+  const Vector3 tcp_offset_ee = parse_tcp_offset(11, argc, argv);
+  if (duration < 2.0 || duration > 20.0) {
+    throw std::runtime_error("duration_s must be in [2.0, 20.0]");
+  }
+
+  franka::Robot robot(host, franka::RealtimeConfig::kIgnore);
+  std::array<double, 7> q_start{};
+  std::array<double, 16> final_pose{};
+  double time = 0.0;
+  bool initialized = false;
+
+  robot.control([&](const franka::RobotState& state, franka::Duration period) {
+    time += period.toSec();
+    if (!initialized) {
+      q_start = state.q;
+      initialized = true;
+    }
+
+    const double clamped_time = std::min(time, duration);
+    const double alpha = 0.5 * (1.0 - std::cos(M_PI * clamped_time / duration));
+    std::array<double, 7> q_command{};
+    for (size_t i = 0; i < q_command.size(); ++i) {
+      q_command[i] = q_start[i] + alpha * (q_goal[i] - q_start[i]);
+    }
+
+    if (time >= duration) {
+      return franka::MotionFinished(franka::JointPositions(q_goal));
+    }
+    return franka::JointPositions(q_command);
+  });
+
+  final_pose = robot.readOnce().O_T_EE;
+  print_pose_json(final_pose, tcp_offset_ee);
+}
+
 void command_gripper(const char* host, const std::string& command, int argc, char** argv) {
   franka::Gripper gripper(host);
   if (command == "gripper-read") {
@@ -297,6 +349,9 @@ void print_usage(const char* program) {
             << " <host> move-relative <dx> <dy> <dz> <duration_s> "
                "<x_min> <x_max> <y_min> <y_max> <z_min> <z_max> "
                "<tcp_offset_x> <tcp_offset_y> <tcp_offset_z>\n"
+            << "  " << program
+            << " <host> joint-move <q0> <q1> <q2> <q3> <q4> <q5> <q6> "
+               "<duration_s> <tcp_offset_x> <tcp_offset_y> <tcp_offset_z>\n"
             << "  " << program << " <host> gripper-read\n"
             << "  " << program << " <host> gripper-open [width_m] [speed_m_s]\n"
             << "  " << program << " <host> gripper-close [width_m] [speed_m_s]\n";
@@ -318,6 +373,8 @@ int main(int argc, char** argv) {
       command_pose(host, argc, argv);
     } else if (command == "move-relative") {
       command_move_relative(host, argc, argv);
+    } else if (command == "joint-move") {
+      command_joint_move(host, argc, argv);
     } else if (
         command == "gripper-read" || command == "gripper-open" || command == "gripper-close") {
       command_gripper(host, command, argc, argv);
