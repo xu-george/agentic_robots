@@ -30,6 +30,17 @@ RGB-D + text prompt -> object 3D pose estimate
 depth + intrinsics + segmentation -> grasp candidates
 ```
 
+Grasp frame convention:
+
+```text
+Contact-GraspNet returns a Panda gripper/control-point frame.
+PerceptionApi.get_best_grasp_pose() applies a +0.105 m local-Z offset by
+default so the returned pose is the project grasp point between the two
+Panda finger tips. This matches PyBullet link 11, panda_grasptarget.
+Real robot experiments can pass apply_grasp_target_offset=False when
+FrankaReal.get_end_effector_pose() should command the raw GraspNet frame.
+```
+
 The perception API does not execute robot motion. The future `action` API should
 consume perception outputs and handle IK, trajectory planning, gripper commands,
 and lower-level robot actions used by task code.
@@ -72,8 +83,9 @@ configs/franka_real.yaml
 The Python `FrankaReal` wrapper reads that file and passes the configured
 workspace bounds to the C++ bridge for every `move-relative` call. The same
 file also defines `tcp.offset_from_ee`, which is applied in the current
-end-effector frame so real `get_end_effector_pose()` returns the same logical
-grasp target point used by the PyBullet `panda_grasptarget` link.
+end-effector frame before `get_end_effector_pose()` reports the command point.
+The current real config uses `[0, 0, 0]`, so the real-lift test requests the raw
+Contact-GraspNet gripper frame instead of the grasp-point offset.
 
 Read-only real backend test:
 

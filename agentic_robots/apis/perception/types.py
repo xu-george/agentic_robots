@@ -30,7 +30,12 @@ class ObjectPose:
 
 @dataclass(frozen=True)
 class GraspPose:
-    """Executable 6-DoF grasp pose selected from a GraspNet plan."""
+    """6-DoF grasp pose selected from a GraspNet plan.
+
+    `graspnet_transform` stores the raw Contact-GraspNet gripper frame. The
+    `transform` field stores the returned command frame, usually the project
+    grasp point between the Panda finger tips.
+    """
 
     position: np.ndarray
     orientation_wxyz: np.ndarray
@@ -38,8 +43,17 @@ class GraspPose:
     transform: np.ndarray
     plan: object
     graspnet_transform: np.ndarray | None = None
+    frame: str = "panda_grasp_point"
+    grasp_target_offset_m: np.ndarray | None = None
 
     @property
     def quaternion_wxyz(self) -> np.ndarray:
         """Alias that matches get_end_effector_pose().quaternion_wxyz."""
         return self.orientation_wxyz
+
+    @property
+    def raw_graspnet_position(self) -> np.ndarray | None:
+        """Raw Contact-GraspNet gripper-frame origin in the output/world frame."""
+        if self.graspnet_transform is None:
+            return None
+        return self.graspnet_transform[:3, 3].copy()

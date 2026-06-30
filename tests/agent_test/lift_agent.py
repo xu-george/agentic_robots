@@ -318,41 +318,6 @@ print("lift fallback grasp score", grasp.score)
 """.strip()
 
 
-def _draw_best_grasp_pose(env, object_prompt: str, *, perception_api=None) -> None:
-    if perception_api is None:
-        from agentic_robots.apis.perception import PerceptionApi
-
-        perception_api = PerceptionApi(observation_provider=env.get_obs)
-
-    env.clear_debug_items()
-    obs = env.get_obs()
-    masks = perception_api.segment_object(obs["rgb"], object_prompt)
-    grasp = perception_api.get_best_grasp_pose(
-        obs["depth"],
-        obs["intrinsics"],
-        masks,
-        obs["camera_pose"],
-    )
-    object_position = env.get_object_position(env.object_name)
-    distance = float(np.linalg.norm(grasp.position - object_position))
-    candidate_transforms = _world_grasp_transforms(grasp.plan.grasps, obs["camera_pose"])
-    marker_transform = grasp.graspnet_transform if grasp.graspnet_transform is not None else grasp.transform
-    env.draw_grasp_candidates(
-        candidate_transforms,
-        scores=grasp.plan.scores,
-        best_transform=marker_transform,
-        max_grasps=5,
-    )
-    displayed_candidates = min(5, len(candidate_transforms))
-    print("Best grasp pose marker:")
-    print("  marker_position:", np.round(marker_transform[:3, 3], 5).tolist())
-    print("  executable_position:", np.round(grasp.position, 5).tolist())
-    print("  executable_quaternion_wxyz:", np.round(grasp.quaternion_wxyz, 5).tolist())
-    print("  score:", round(float(grasp.score), 5))
-    print("  distance_to_object_origin_m:", round(distance, 5))
-    print("  displayed_candidates:", displayed_candidates)
-
-
 def _candidate_marker_transforms(grasp, camera_pose: np.ndarray | None) -> np.ndarray:
     candidate_transforms = np.asarray(grasp.plan.grasps, dtype=np.float64).reshape(-1, 4, 4)
     if getattr(grasp, "graspnet_transform", None) is not None and camera_pose is not None:

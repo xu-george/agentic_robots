@@ -12,15 +12,23 @@ from agentic_robots.services.graspnet.types import GraspPlan
 from agentic_robots.services.sam3.client import Sam3Client
 from agentic_robots.services.sam3.types import PointPromptResult, Sam3Mask
 
+PANDA_GRASPTARGET_OFFSET_M = np.array([0.0, 0.0, 0.105], dtype=np.float64)
+"""Panda hand -> grasp target position offset.
+
+The project uses one grasp command point: the center between the two finger
+tips. In PyBullet this is link 11, `panda_grasptarget`, at local +0.105 m Z.
+"""
+
 PANDA_GRASPTARGET_FROM_GRASPNET = np.array(
     [
         [0.0, 1.0, 0.0, 0.0],
         [-1.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 1.0, 0.112204],
+        [0.0, 0.0, 1.0, PANDA_GRASPTARGET_OFFSET_M[2]],
         [0.0, 0.0, 0.0, 1.0],
     ],
     dtype=np.float64,
 )
+"""GraspNet gripper frame -> PyBullet panda_grasptarget frame."""
 
 
 class PerceptionApi(ApiBase):
@@ -324,11 +332,16 @@ class PerceptionApi(ApiBase):
         z_range: tuple[float, float] = (0.2, 2.0),
         forward_passes: int = 4,
         max_retries: int = 10,
+        apply_grasp_target_offset: bool = True,
     ) -> GraspPose:
         """Return the highest-scoring GraspNet 6-DoF grasp as a pose.
 
         The returned pose is in the camera frame by default. If `camera_pose`
         is supplied, the grasp transform is converted into that world frame.
+
+        Contact-GraspNet returns its Panda gripper frame. By default this
+        converts it to the PyBullet `panda_grasptarget` frame. Pass
+        `apply_grasp_target_offset=False` for the raw GraspNet frame.
         """
         plan = self.plan_grasp(
             depth=depth,
@@ -361,7 +374,14 @@ class PerceptionApi(ApiBase):
             camera_pose = np.asarray(camera_pose, dtype=np.float64).reshape(4, 4)
             graspnet_transform = camera_pose @ graspnet_transform
 
-        transform = graspnet_transform @ PANDA_GRASPTARGET_FROM_GRASPNET
+        if apply_grasp_target_offset:
+            transform = graspnet_transform @ PANDA_GRASPTARGET_FROM_GRASPNET
+            frame = "panda_grasp_point"
+            offset = PANDA_GRASPTARGET_OFFSET_M.copy()
+        else:
+            transform = graspnet_transform.copy()
+            frame = "graspnet_gripper"
+            offset = np.zeros(3, dtype=np.float64)
 
         return GraspPose(
             position=transform[:3, 3].copy(),
@@ -370,6 +390,8 @@ class PerceptionApi(ApiBase):
             transform=transform,
             plan=plan,
             graspnet_transform=graspnet_transform,
+            frame=frame,
+            grasp_target_offset_m=offset,
         )
 
 

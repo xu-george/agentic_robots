@@ -48,6 +48,10 @@ def main() -> None:
         sys.path.insert(0, str(PROJECT_ROOT))
 
     from agentic_robots.apis.perception import PerceptionApi
+    from agentic_robots.apis.perception.api import (
+        PANDA_GRASPTARGET_FROM_GRASPNET,
+        PANDA_GRASPTARGET_OFFSET_M,
+    )
 
     api = PerceptionApi(
         sam3_client=FakeSam3Client(),
@@ -81,6 +85,21 @@ def main() -> None:
     assert grasp_pose.position.shape == (3,)
     assert grasp_pose.orientation_wxyz.shape == (4,)
     assert grasp_pose.transform.shape == (4, 4)
+    assert grasp_pose.frame == "panda_grasp_point"
+    assert np.allclose(grasp_pose.raw_graspnet_position, np.zeros(3))
+    assert np.allclose(grasp_pose.position, PANDA_GRASPTARGET_OFFSET_M)
+    assert np.allclose(grasp_pose.transform, PANDA_GRASPTARGET_FROM_GRASPNET)
+    assert np.allclose(grasp_pose.grasp_target_offset_m, PANDA_GRASPTARGET_OFFSET_M)
+
+    raw_grasp_pose = api.get_best_grasp_pose(
+        depth,
+        intrinsics,
+        pose.mask,
+        apply_grasp_target_offset=False,
+    )
+    assert raw_grasp_pose.frame == "graspnet_gripper"
+    assert np.allclose(raw_grasp_pose.position, np.zeros(3))
+    assert np.allclose(raw_grasp_pose.grasp_target_offset_m, np.zeros(3))
 
     docs = api.combined_doc()
     assert "segment_object" in docs

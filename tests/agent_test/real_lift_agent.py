@@ -24,7 +24,7 @@ Return only executable Python code, no markdown, no explanation.
 REAL_LIFT_API_DESCRIPTION = """Perception:
 - get_observation() -> observation dict with rgb, depth, intrinsics, camera_pose
 - segment_object(rgb, text_prompt) -> SAM3 masks for the requested object
-- get_best_grasp_pose(depth, intrinsics, segmentation, camera_pose) -> grasp in Franka base frame
+- get_best_grasp_pose(depth, intrinsics, segmentation, camera_pose) -> raw GraspNet grasp in Franka base frame
 Action:
 - get_end_effector_pose() -> current robot pose with position and quaternion_wxyz
 - move_to_pose(position, quaternion_wxyz, duration_s=5.0)
@@ -72,14 +72,11 @@ def main() -> None:
             return
 
         base_perception_api = PerceptionApi(observation_provider=env.get_obs)
-        perception_api = (
-            base_perception_api
-            if args.no_grasp_window
-            else LiveGraspPerceptionApi(
-                base_perception_api,
-                output_dir=args.output_dir,
-                top_k=args.grasp_window_top_k,
-            )
+        perception_api = LiveGraspPerceptionApi(
+            base_perception_api,
+            output_dir=args.output_dir,
+            top_k=args.grasp_window_top_k,
+            show_window=not args.no_grasp_window,
         )
         action_api = ChunkedRealActionApi(env.robot)
         api_functions = perception_api.functions()
@@ -212,12 +209,20 @@ class ChunkedRealActionApi:
 
 
 class LiveGraspPerceptionApi:
-    """Test-local wrapper that visualizes grasp plans without changing PerceptionApi."""
+    """Real-lift perception wrapper that uses the raw GraspNet command frame."""
 
-    def __init__(self, base_api: Any, *, output_dir: Path, top_k: int) -> None:
+    def __init__(
+        self,
+        base_api: Any,
+        *,
+        output_dir: Path,
+        top_k: int,
+        show_window: bool,
+    ) -> None:
         self.base_api = base_api
         self.output_dir = output_dir
         self.top_k = top_k
+        self.show_window = show_window
         self._last_rgb: np.ndarray | None = None
         self._last_mask: np.ndarray | None = None
 
@@ -237,6 +242,7 @@ class LiveGraspPerceptionApi:
         return masks
 
     def get_best_grasp_pose(self, depth, intrinsics, segmentation, camera_pose, *args, **kwargs):
+        kwargs.setdefault("apply_grasp_target_offset", False)
         grasp = self.base_api.get_best_grasp_pose(
             depth,
             intrinsics,
@@ -245,7 +251,7 @@ class LiveGraspPerceptionApi:
             *args,
             **kwargs,
         )
-        if self._last_rgb is not None:
+        if self.show_window and self._last_rgb is not None:
             overlay = draw_grasp_overlay(
                 rgb=self._last_rgb,
                 mask=self._last_mask,
@@ -260,6 +266,19 @@ class LiveGraspPerceptionApi:
             cv2.imshow("Real lift grasp hypotheses", cv2.cvtColor(overlay, cv2.COLOR_RGB2BGR))
             cv2.waitKey(1)
             print(f"live_grasp_overlay={output_path}")
+        print("grasp_frame", getattr(grasp, "frame", "unknown"))
+        raw_position = grasp.raw_graspnet_position
+        print(
+            "raw_graspnet_position",
+            np.round(raw_position, 5).tolist() if raw_position is not None else None,
+        )
+        print("command_position", np.round(grasp.position, 5).tolist())
+        print(
+            "grasp_target_offset_m",
+            np.round(grasp.grasp_target_offset_m, 6).tolist()
+            if grasp.grasp_target_offset_m is not None
+            else None,
+        )
         return grasp
 
 
