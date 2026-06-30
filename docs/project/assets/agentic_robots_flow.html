@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agentic Robots Flow</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f8fa;
+      --ink: #17202a;
+      --muted: #52616f;
+      --line: #667085;
+      --input: #dbeafe;
+      --process: #e8f5e9;
+      --skill: #fff4d6;
+      --learn: #f3e8ff;
+      --real: #ffe4e6;
+      --eval: #e0f2fe;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    svg {
+      display: block;
+      width: 1400px;
+      height: 820px;
+      background: var(--bg);
+    }
+
+    text {
+      fill: var(--ink);
+      font-size: 24px;
+      letter-spacing: 0;
+    }
+
+    .title {
+      font-size: 38px;
+      font-weight: 700;
+    }
+
+    .subtitle {
+      fill: var(--muted);
+      font-size: 22px;
+    }
+
+    .box {
+      stroke: #344054;
+      stroke-width: 2;
+      rx: 8;
+      ry: 8;
+    }
+
+    .label {
+      font-size: 23px;
+      font-weight: 700;
+    }
+
+    .body {
+      fill: var(--muted);
+      font-size: 18px;
+    }
+
+    .arrow {
+      stroke: var(--line);
+      stroke-width: 3;
+      fill: none;
+      marker-end: url(#arrow);
+    }
+
+    .loop {
+      stroke: #7c3aed;
+      stroke-width: 3;
+      fill: none;
+      marker-end: url(#arrow-purple);
+      stroke-dasharray: 8 8;
+    }
+  </style>
+</head>
+<body>
+<svg viewBox="0 0 1400 820" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Agentic Robots project flow chart">
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#667085"/>
+    </marker>
+    <marker id="arrow-purple" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#7c3aed"/>
+    </marker>
+  </defs>
+
+  <text x="70" y="72" class="title">Agentic Robots Control Flow</text>
+  <text x="70" y="112" class="subtitle">See the scene -> Verify in simulation -> Move the robot -> Check result -> Improve</text>
+
+  <path class="arrow" d="M300 240 H382"/>
+  <path class="arrow" d="M612 240 H694"/>
+  <path class="arrow" d="M924 240 H1006"/>
+  <path class="arrow" d="M1165 330 V402"/>
+  <path class="arrow" d="M1006 510 H924"/>
+  <path class="arrow" d="M694 510 H612"/>
+  <path class="arrow" d="M382 510 H300"/>
+  <path class="loop" d="M170 430 V352"/>
+  <path class="loop" d="M170 590 C170 695 1230 695 1230 600 V602"/>
+
+  <rect x="70" y="170" width="230" height="140" class="box" fill="var(--input)"/>
+  <text x="100" y="222" class="label">See Scene</text>
+  <text x="100" y="258" class="body">camera image, depth</text>
+  <text x="100" y="284" class="body">robot state, target</text>
+
+  <rect x="382" y="170" width="230" height="140" class="box" fill="var(--process)"/>
+  <text x="412" y="222" class="label">Real2Sim</text>
+  <text x="412" y="258" class="body">build sim scene</text>
+  <text x="412" y="284" class="body">verify plan safely</text>
+
+  <rect x="694" y="170" width="230" height="140" class="box" fill="var(--process)"/>
+  <text x="724" y="222" class="label">Make Plan</text>
+  <text x="724" y="258" class="body">break goal into steps</text>
+  <text x="724" y="284" class="body">choose next action</text>
+
+  <rect x="1006" y="170" width="230" height="160" class="box" fill="var(--skill)"/>
+  <text x="1036" y="222" class="label">Use Skills</text>
+  <text x="1036" y="258" class="body">segment object</text>
+  <text x="1036" y="284" class="body">choose grasp</text>
+  <text x="1036" y="310" class="body">call robot API</text>
+
+  <rect x="1006" y="402" width="230" height="150" class="box" fill="var(--real)"/>
+  <text x="1036" y="456" class="label">Move Robot</text>
+  <text x="1036" y="492" class="body">run after sim check</text>
+  <text x="1036" y="518" class="body">Franka control</text>
+
+  <rect x="694" y="440" width="230" height="140" class="box" fill="var(--eval)"/>
+  <text x="724" y="492" class="label">Check Result</text>
+  <text x="724" y="528" class="body">did task succeed?</text>
+  <text x="724" y="554" class="body">what failed?</text>
+
+  <rect x="382" y="440" width="230" height="140" class="box" fill="var(--learn)"/>
+  <text x="412" y="492" class="label">Save Example</text>
+  <text x="412" y="528" class="body">logs, images, grasps</text>
+  <text x="412" y="554" class="body">success or failure</text>
+
+  <rect x="70" y="440" width="230" height="150" class="box" fill="var(--learn)"/>
+  <text x="100" y="492" class="label">Improve</text>
+  <text x="100" y="528" class="body">reuse good skills</text>
+  <text x="100" y="554" class="body">fix bad plans</text>
+
+  <text x="72" y="755" class="subtitle">Simple idea: use Real2Sim to test the plan in simulation first, then run safer actions on the real robot.</text>
+</svg>
+</body>
+</html>

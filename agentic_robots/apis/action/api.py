@@ -51,3 +51,4 @@ class ActionApi(ApiBase):
     def _require_robot(self) -> None:
         if self.robot is None:
             raise RuntimeError("A loaded robot must be provided before using ActionApi")
+

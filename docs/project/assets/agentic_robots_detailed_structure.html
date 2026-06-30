@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agentic Robots Detailed Structure</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --ink: #17202a;
+      --muted: #52616f;
+      --line: #64748b;
+      --agent: #e0e7ff;
+      --api: #d1fae5;
+      --service: #fee2e2;
+      --env: #fef3c7;
+      --data: #e0f2fe;
+      --result: #f3e8ff;
+      --robot: #ffedd5;
+      --white: #ffffff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      width: 1800px;
+      min-height: 1420px;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .page {
+      position: relative;
+      width: 1800px;
+      height: 1420px;
+      padding: 42px 52px;
+      overflow: hidden;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 42px;
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 22px;
+    }
+
+    .grid {
+      position: relative;
+      display: grid;
+      grid-template-columns: 280px 280px 310px 310px 310px;
+      gap: 22px;
+      margin-top: 36px;
+      align-items: stretch;
+    }
+
+    .lane {
+      border: 2px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 18px;
+      min-height: 600px;
+      background: rgba(255,255,255,0.72);
+      box-shadow: 0 3px 12px rgba(15, 23, 42, 0.08);
+    }
+
+    .lane h2 {
+      margin: 0 0 14px;
+      font-size: 23px;
+      line-height: 1.18;
+      letter-spacing: 0;
+    }
+
+    .card {
+      border: 2px solid #94a3b8;
+      border-radius: 8px;
+      padding: 13px 14px;
+      margin-bottom: 14px;
+      background: var(--white);
+    }
+
+    .agent { background: var(--agent); }
+    .api { background: var(--api); }
+    .service { background: var(--service); }
+    .env { background: var(--env); }
+    .data { background: var(--data); }
+    .result { background: var(--result); }
+    .robot { background: var(--robot); }
+
+    .card h3 {
+      margin: 0 0 7px;
+      font-size: 18px;
+      line-height: 1.15;
+    }
+
+    .card p,
+    .card li {
+      margin: 0;
+      color: #334155;
+      font-size: 14px;
+      line-height: 1.28;
+    }
+
+    .card ul {
+      margin: 7px 0 0;
+      padding-left: 17px;
+    }
+
+    .tag {
+      display: inline-block;
+      margin: 4px 4px 0 0;
+      padding: 3px 7px;
+      border: 1px solid #64748b;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.62);
+      color: #263443;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .arrow-row {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1800px;
+      height: 1420px;
+      pointer-events: none;
+    }
+
+    .section-title {
+      margin: 34px 0 18px;
+      font-size: 28px;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .step {
+      min-height: 118px;
+      border: 2px solid #94a3b8;
+      border-radius: 10px;
+      padding: 14px;
+      background: var(--white);
+    }
+
+    .step strong {
+      display: block;
+      font-size: 17px;
+      margin-bottom: 8px;
+    }
+
+    .step span {
+      display: block;
+      color: #475569;
+      font-size: 13px;
+      line-height: 1.28;
+    }
+
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    figure {
+      margin: 0;
+      border: 2px solid #cbd5e1;
+      border-radius: 10px;
+      background: var(--white);
+      overflow: hidden;
+      box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08);
+    }
+
+    figure img {
+      display: block;
+      width: 100%;
+      height: 190px;
+      object-fit: cover;
+      background: #e2e8f0;
+    }
+
+    figcaption {
+      padding: 12px 14px 14px;
+      font-size: 15px;
+      line-height: 1.25;
+      color: #334155;
+    }
+
+    figcaption strong {
+      display: block;
+      color: var(--ink);
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+
+    .footer {
+      position: absolute;
+      left: 52px;
+      right: 52px;
+      bottom: 26px;
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 15px;
+      border-top: 1px solid #cbd5e1;
+      padding-top: 12px;
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <h1>Agentic Robots: Current Main Structure</h1>
+    <div class="subtitle">A planner-safe robot stack: services -> APIs -> environments -> agent runtime -> results -> learning feedback.</div>
+
+    <svg class="arrow-row" viewBox="0 0 1800 1420" aria-hidden="true">
+      <defs>
+        <marker id="arrow" markerWidth="13" markerHeight="13" refX="11" refY="6.5" orient="auto">
+          <path d="M2,2 L11,6.5 L2,11 Z" fill="#64748b"/>
+        </marker>
+        <marker id="loopArrow" markerWidth="13" markerHeight="13" refX="11" refY="6.5" orient="auto">
+          <path d="M2,2 L11,6.5 L2,11 Z" fill="#7c3aed"/>
+        </marker>
+      </defs>
+      <path d="M350 330 H404" stroke="#64748b" stroke-width="4" fill="none" marker-end="url(#arrow)"/>
+      <path d="M650 330 H704" stroke="#64748b" stroke-width="4" fill="none" marker-end="url(#arrow)"/>
+      <path d="M982 330 H1036" stroke="#64748b" stroke-width="4" fill="none" marker-end="url(#arrow)"/>
+      <path d="M1314 330 H1368" stroke="#64748b" stroke-width="4" fill="none" marker-end="url(#arrow)"/>
+      <path d="M1550 660 C1550 730 240 730 240 660" stroke="#7c3aed" stroke-width="4" fill="none" stroke-dasharray="10 9" marker-end="url(#loopArrow)"/>
+    </svg>
+
+    <section class="grid">
+      <div class="lane">
+        <h2>1. Agent / Planner</h2>
+        <div class="card agent">
+          <h3>CodeAgent</h3>
+          <p>LLM loop that writes short Python task programs.</p>
+          <ul>
+            <li>Task description</li>
+            <li>API docs</li>
+            <li>Scene context</li>
+            <li>Diagnostics + retry</li>
+          </ul>
+        </div>
+        <div class="card agent">
+          <h3>AgentRuntime</h3>
+          <p>Executes generated code only against allowlisted functions.</p>
+          <span class="tag">no imports</span>
+          <span class="tag">small builtins</span>
+          <span class="tag">safe API calls</span>
+        </div>
+        <div class="card data">
+          <h3>Planner Output</h3>
+          <p><code>generated_code.py</code>, stdout, runtime status, task success, attempt history.</p>
+        </div>
+      </div>
+
+      <div class="lane">
+        <h2>2. High-Level APIs</h2>
+        <div class="card api">
+          <h3>ActionApi</h3>
+          <p>Robot-only control interface.</p>
+          <ul>
+            <li>get_end_effector_pose()</li>
+            <li>move_to_pose(pos, quat)</li>
+            <li>open_gripper()</li>
+            <li>close_gripper()</li>
+          </ul>
+        </div>
+        <div class="card api">
+          <h3>PerceptionApi</h3>
+          <p>Planner-safe perception + grasp API.</p>
+          <ul>
+            <li>get_observation()</li>
+            <li>segment_object(rgb, prompt)</li>
+            <li>get_object_pose(...)</li>
+            <li>get_best_grasp_pose(...)</li>
+          </ul>
+        </div>
+        <div class="card api">
+          <h3>Data Types</h3>
+          <span class="tag">ObjectPose</span>
+          <span class="tag">GraspPose</span>
+          <span class="tag">Sam3Mask</span>
+          <span class="tag">GraspPlan</span>
+        </div>
+      </div>
+
+      <div class="lane">
+        <h2>3. Services</h2>
+        <div class="card service">
+          <h3>Qwen Service</h3>
+          <p>Local LLM chat/completion service.</p>
+          <span class="tag">/chat</span>
+          <span class="tag">ChatResult</span>
+        </div>
+        <div class="card service">
+          <h3>SAM3 Service</h3>
+          <p>Text and point-prompt segmentation.</p>
+          <span class="tag">/segment</span>
+          <span class="tag">mask + box + score</span>
+        </div>
+        <div class="card service">
+          <h3>GraspNet Service</h3>
+          <p>Contact-GraspNet grasp generation.</p>
+          <span class="tag">/plan</span>
+          <span class="tag">4x4 grasps</span>
+          <span class="tag">scores</span>
+        </div>
+        <div class="card service">
+          <h3>PyRoKi Motion</h3>
+          <p>Experimental motion waypoints and joint planning.</p>
+          <span class="tag">waypoints</span>
+          <span class="tag">joint states</span>
+        </div>
+      </div>
+
+      <div class="lane">
+        <h2>4. Envs / Robots / Tasks</h2>
+        <div class="card env">
+          <h3>PyBullet Envs</h3>
+          <p>Simulation tasks and rendering.</p>
+          <ul>
+            <li>FrankaSim</li>
+            <li>LiftEnv</li>
+            <li>StackingEnv</li>
+          </ul>
+        </div>
+        <div class="card robot">
+          <h3>Real Robot</h3>
+          <p>Franka + RealSense stack.</p>
+          <ul>
+            <li>FrankaReal</li>
+            <li>RealSenseCamera</li>
+            <li>RealObjectLiftEnv</li>
+          </ul>
+        </div>
+        <div class="card data">
+          <h3>Observation</h3>
+          <p>RGB, depth, intrinsics, camera_pose, robot pose, gripper state.</p>
+        </div>
+      </div>
+
+      <div class="lane">
+        <h2>5. Results / Learning</h2>
+        <div class="card result">
+          <h3>Task Outputs</h3>
+          <p>JSON results, generated code, stdout, overlays, videos, grasp arrays.</p>
+        </div>
+        <div class="card result">
+          <h3>Evaluation</h3>
+          <p>runtime_success, task_success, failure reason, attempt count, diagnostics.</p>
+        </div>
+        <div class="card result">
+          <h3>Skill Memory</h3>
+          <p>Future storage for reusable skills, examples, traces, and fine-tuning data.</p>
+        </div>
+      </div>
+    </section>
+
+    <h2 class="section-title">Data Flow And Interfaces</h2>
+    <section class="flow">
+      <div class="step data"><strong>Observation</strong><span>RealSense / PyBullet -> rgb, depth, intrinsics, camera_pose, robot state.</span></div>
+      <div class="step service"><strong>Segmentation</strong><span>SAM3: image + text prompt -> masks, boxes, scores.</span></div>
+      <div class="step service"><strong>Grasp Planning</strong><span>GraspNet: depth + intrinsics + segmap -> 4x4 grasps, scores, contacts.</span></div>
+      <div class="step api"><strong>API Objects</strong><span>ObjectPose, GraspPose, GraspPlan become planner-safe data.</span></div>
+      <div class="step agent"><strong>Agent Code</strong><span>CodeAgent writes high-level Python using only exposed APIs.</span></div>
+      <div class="step robot"><strong>Execution</strong><span>ActionApi -> FrankaSim or FrankaReal: move, open, close.</span></div>
+      <div class="step result"><strong>Feedback</strong><span>success/failure, overlays, videos, traces feed future skill learning.</span></div>
+    </section>
+
+    <h2 class="section-title">Module Results And Visual Evidence</h2>
+    <section class="gallery">
+      <figure>
+        <img src="../../../tests/service_tests/outputs/sam3_segment/overlay_00.png" alt="SAM3 banana segmentation result">
+        <figcaption><strong>SAM3 Segmentation</strong>Text prompt "banana" produces masks, boxes, scores, and overlay images.</figcaption>
+      </figure>
+      <figure>
+        <img src="../../../tests/service_tests/outputs/graspnet_plan/official_grasps_top20.png" alt="GraspNet top grasp candidates">
+        <figcaption><strong>GraspNet Hypotheses</strong>Depth + segmentation generate ranked 6-DoF grasp candidates.</figcaption>
+      </figure>
+      <figure>
+        <img src="../../../tests/service_tests/outputs/realsense_grasp_hypotheses/grasp_hypotheses_overlay.png" alt="RealSense grasp hypotheses overlay">
+        <figcaption><strong>RealSense Grasp Overlay</strong>Real RGB-D capture connects perception output to grasp planning.</figcaption>
+      </figure>
+      <figure>
+        <img src="../../../tests/agent_test/outputs/real_lift_agent/live_grasp_overlay.png" alt="Live real lift grasp overlay">
+        <figcaption><strong>Real Lift Agent</strong>Test-local live overlay shows selected grasp candidates during real task planning.</figcaption>
+      </figure>
+    </section>
+
+    <div class="footer">
+      <span>Repository: /home/user/Documents/Code/agentic_robots</span>
+      <span>Core idea: stable APIs let agent planning evolve without breaking robot execution.</span>
+    </div>
+  </main>
+</body>
+</html>
