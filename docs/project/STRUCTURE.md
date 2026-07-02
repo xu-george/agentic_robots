@@ -274,7 +274,7 @@ get_object_pose(rgb, depth, intrinsics, object_name, camera_pose=None)
 mask_to_3d_points(depth, intrinsics, mask, camera_pose=None)
 get_oriented_bounding_box_from_3d_points(points)
 plan_grasp(depth, intrinsics, segmentation, ...)
-get_best_grasp_pose(depth, intrinsics, segmentation, camera_pose=None, ...)
+get_finger_grasp(depth, intrinsics, segmentation, camera_pose=None, ...)
 ```
 
 Data types:
@@ -333,8 +333,7 @@ get_ground_truth()
 get_object_pose(name)
 get_object_position(name)
 is_success()
-draw_grasp_pose(...)
-draw_grasp_candidates(...)
+clear_debug_items()
 close()
 ```
 

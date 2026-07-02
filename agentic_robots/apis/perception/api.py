@@ -11,6 +11,7 @@ from agentic_robots.services.graspnet.client import GraspNetClient
 from agentic_robots.services.graspnet.types import GraspPlan
 from agentic_robots.services.sam3.client import Sam3Client
 from agentic_robots.services.sam3.types import PointPromptResult, Sam3Mask
+from agentic_robots.utils.transforms import rotation_matrix_to_quaternion_wxyz
 
 PANDA_GRASPTARGET_OFFSET_M = np.array([0.0, 0.0, 0.105], dtype=np.float64)
 """Panda hand -> grasp target position offset.
@@ -56,7 +57,7 @@ class PerceptionApi(ApiBase):
                 self.get_oriented_bounding_box_from_3d_points
             ),
             "plan_grasp": self.plan_grasp,
-            "get_best_grasp_pose": self.get_best_grasp_pose,
+            "get_finger_grasp": self.get_finger_grasp,
         }
 
     def get_observation(self) -> dict[str, Any]:
@@ -73,7 +74,7 @@ class PerceptionApi(ApiBase):
                 - camera_pose: optional np.ndarray of shape (4, 4)
         """
         if self._observation_provider is None:
-            raise RuntimeError("No observation_provider was configured")
+            raise RuntimeError("No observation provider was configured")
         return self._observation_provider()
 
     def segment_object(self, rgb: np.ndarray, text_prompt: str) -> list[Sam3Mask]:
@@ -167,7 +168,7 @@ class PerceptionApi(ApiBase):
         return ObjectPose(
             object_name=object_name,
             position=obb.center,
-            orientation_wxyz=_rotation_matrix_to_quaternion_wxyz(obb.rotation),
+            orientation_wxyz=rotation_matrix_to_quaternion_wxyz(obb.rotation),
             mask=best.mask,
             box=best.box,
             score=best.score,
@@ -321,7 +322,7 @@ class PerceptionApi(ApiBase):
             max_retries=max_retries,
         )
 
-    def get_best_grasp_pose(
+    def get_finger_grasp(
         self,
         depth: np.ndarray,
         intrinsics: np.ndarray,
@@ -334,14 +335,17 @@ class PerceptionApi(ApiBase):
         max_retries: int = 10,
         apply_grasp_target_offset: bool = True,
     ) -> GraspPose:
-        """Return the highest-scoring GraspNet 6-DoF grasp as a pose.
+        """Return the highest-scoring graspcandidate as the finger-tip grasp pose.
+
+        ``plan_grasp`` returns raw Contact-GraspNet gripper transforms whose
+        origin is the Panda hand/wrist base. By default this offsets the best
+        grasp by ``PANDA_GRASPTARGET_OFFSET_M`` (+0.105 m local Z) to the
+        center between the two finger tips (``panda_grasptarget``), i.e. the
+        point the Franka hand link should move to. Pass
+        ``apply_grasp_target_offset=False`` to keep the raw hand-base frame.
 
         The returned pose is in the camera frame by default. If `camera_pose`
         is supplied, the grasp transform is converted into that world frame.
-
-        Contact-GraspNet returns its Panda gripper frame. By default this
-        converts it to the PyBullet `panda_grasptarget` frame. Pass
-        `apply_grasp_target_offset=False` for the raw GraspNet frame.
         """
         plan = self.plan_grasp(
             depth=depth,
@@ -385,7 +389,7 @@ class PerceptionApi(ApiBase):
 
         return GraspPose(
             position=transform[:3, 3].copy(),
-            orientation_wxyz=_rotation_matrix_to_quaternion_wxyz(transform[:3, :3]),
+            orientation_wxyz=rotation_matrix_to_quaternion_wxyz(transform[:3, :3]),
             score=float(plan.scores[best_idx]) if plan.scores.size else 0.0,
             transform=transform,
             plan=plan,
@@ -393,45 +397,6 @@ class PerceptionApi(ApiBase):
             frame=frame,
             grasp_target_offset_m=offset,
         )
-
-
-def _rotation_matrix_to_quaternion_wxyz(rotation: np.ndarray) -> np.ndarray:
-    """Convert a 3x3 rotation matrix to a normalized wxyz quaternion."""
-    r = np.asarray(rotation, dtype=np.float64).reshape(3, 3)
-    trace = float(np.trace(r))
-    if trace > 0.0:
-        s = np.sqrt(trace + 1.0) * 2.0
-        qw = 0.25 * s
-        qx = (r[2, 1] - r[1, 2]) / s
-        qy = (r[0, 2] - r[2, 0]) / s
-        qz = (r[1, 0] - r[0, 1]) / s
-    else:
-        idx = int(np.argmax(np.diag(r)))
-        if idx == 0:
-            s = np.sqrt(1.0 + r[0, 0] - r[1, 1] - r[2, 2]) * 2.0
-            qw = (r[2, 1] - r[1, 2]) / s
-            qx = 0.25 * s
-            qy = (r[0, 1] + r[1, 0]) / s
-            qz = (r[0, 2] + r[2, 0]) / s
-        elif idx == 1:
-            s = np.sqrt(1.0 + r[1, 1] - r[0, 0] - r[2, 2]) * 2.0
-            qw = (r[0, 2] - r[2, 0]) / s
-            qx = (r[0, 1] + r[1, 0]) / s
-            qy = 0.25 * s
-            qz = (r[1, 2] + r[2, 1]) / s
-        else:
-            s = np.sqrt(1.0 + r[2, 2] - r[0, 0] - r[1, 1]) * 2.0
-            qw = (r[1, 0] - r[0, 1]) / s
-            qx = (r[0, 2] + r[2, 0]) / s
-            qy = (r[1, 2] + r[2, 1]) / s
-            qz = 0.25 * s
-
-    quat = np.array([qw, qx, qy, qz], dtype=np.float64)
-    norm = np.linalg.norm(quat)
-    if norm == 0.0:
-        return np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float64)
-    return quat / norm
-
 
 def _coerce_segmentation(segmentation: Any) -> np.ndarray:
     if isinstance(segmentation, list):

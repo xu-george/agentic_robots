@@ -48,6 +48,7 @@ class RealObjectLiftEnv:
     def reset(self) -> dict[str, Any]:
         self.robot.load()
         if self.motion_enabled and self.move_home_on_reset:
+            self.robot.recover_errors()
             self.robot.move_home()
         return self.get_obs()
 

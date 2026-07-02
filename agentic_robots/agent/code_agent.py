@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from agentic_robots.agent.runtime import AgentRuntime, RuntimeResult
@@ -39,6 +40,9 @@ class CodeAgentConfig:
     success_fn: Callable[[], bool]
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
     api_description: str | None = None
+    api_schema_path: str | Path | None = None
+    api_function_names: list[str] | None = None
+    extra_api_functions: dict[str, dict[str, Any]] | None = None
     scene_context_fn: Callable[[], Any] | None = None
     diagnostics_fn: Callable[[], Any] | None = None
     revision_guidance: str = "Revise the code and return only executable Python code."
@@ -74,8 +78,8 @@ class CodeAgent:
         attempts.append(self._run_attempt(code))
 
         while llm_used and not attempts[-1].task_success and len(attempts) < self.max_attempts:
-            code = self._revise_code(task_description, attempts[-1])
             self._reset_env_for_retry()
+            code = self._revise_code(task_description, attempts[-1])
             attempts.append(self._run_attempt(code))
 
         final_attempt = attempts[-1]
@@ -98,7 +102,7 @@ class CodeAgent:
                 self._build_prompt(task_description),
                 system=self.config.system_prompt,
                 temperature=0.0,
-                max_tokens=1024,
+                max_tokens=2048,
             )
             return extract_code(result.content), True
         except Exception:
@@ -122,7 +126,7 @@ class CodeAgent:
             prompt,
             system=self.config.system_prompt,
             temperature=0.0,
-            max_tokens=1024,
+            max_tokens=2048,
         )
         return extract_code(result.content)
 
@@ -130,8 +134,9 @@ class CodeAgent:
         task = task_description or self.config.task_description
         parts = [f"Task: {task}"]
 
-        if self.config.api_description:
-            parts.append(f"Available APIs:\n{self.config.api_description}")
+        api_desc = self._get_api_description()
+        if api_desc:
+            parts.append(f"Available APIs:\n{api_desc}")
         else:
             api_names = "\n".join(f"- {name}" for name in sorted(self.config.api_functions))
             parts.append(f"Available APIs:\n{api_names}")
@@ -141,6 +146,17 @@ class CodeAgent:
 
         parts.append("Write high-level Python code using only the available APIs.")
         return "\n".join(parts)
+
+    def _get_api_description(self) -> str | None:
+        if self.config.api_schema_path is not None or self.config.extra_api_functions is not None:
+            from agentic_robots.utils.api_schema import build_api_description
+
+            return build_api_description(
+                function_names=self.config.api_function_names,
+                schema_path=self.config.api_schema_path,
+                extra_functions=self.config.extra_api_functions,
+            )
+        return self.config.api_description
 
     def _diagnostics(self) -> Any:
         if self.config.diagnostics_fn is None:

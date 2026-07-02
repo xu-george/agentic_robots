@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import time
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -157,7 +156,6 @@ class FrankaSim:
         *,
         steps: int = 120,
         max_force: float = 240.0,
-        sleep_s: float = 0.0,
     ) -> None:
         """Move the arm toward target joints using PyBullet position control."""
         self._require_loaded()
@@ -170,7 +168,7 @@ class FrankaSim:
             forces=[max_force] * len(ARM_JOINT_INDICES),
             physicsClientId=self.client_id,
         )
-        self.step(steps, sleep_s=sleep_s)
+        self.step(steps)
 
     def move_to_pose(
         self,
@@ -194,12 +192,10 @@ class FrankaSim:
         """Close both Panda fingers."""
         self._set_gripper(width=0.0, steps=steps)
 
-    def step(self, steps: int = 1, *, sleep_s: float = 0.0) -> None:
+    def step(self, steps: int = 1) -> None:
         """Step the PyBullet simulation."""
         for _ in range(max(0, int(steps))):
             p.stepSimulation(physicsClientId=self.client_id)
-            if sleep_s > 0.0:
-                time.sleep(sleep_s)
         if self.frame_recorder is not None:
             self.frame_recorder()
 

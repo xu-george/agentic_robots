@@ -9,9 +9,12 @@ import numpy as np
 import yaml
 
 
-OPEN_WIDTH_M = 0.04
+OPEN_WIDTH_M = 0.08
 CLOSE_WIDTH_M = 0.01
 GRIPPER_SPEED_M_S = 0.03
+GRIPPER_FORCE_N = 20.0
+GRASP_EPSILON_INNER_M = 0.005
+GRASP_EPSILON_OUTER_M = 0.04
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "configs" / "franka_real.yaml"
 BRIDGE_RELATIVE_PATH = Path("franka_action_bridge/build/franka_action_bridge")
@@ -60,7 +63,6 @@ class FrankaTcpConfig:
 class FrankaRealConfig:
     host: str
     default_motion_duration_s: float
-    max_translation_m: float
     orientation_tolerance: float
     home_joint_duration_s: float
     home_joint_positions: tuple[float, float, float, float, float, float, float]
@@ -100,7 +102,6 @@ class FrankaReal:
         bridge_binary: str | Path | None = None,
         config_path: str | Path = DEFAULT_CONFIG_PATH,
         motion_enabled: bool = False,
-        max_translation_m: float | None = None,
         default_motion_duration_s: float | None = None,
         orientation_tolerance: float | None = None,
         workspace: FrankaWorkspaceLimits | None = None,
@@ -110,9 +111,6 @@ class FrankaReal:
         self.host = config.host if host is None else host
         self.bridge_binary = Path(bridge_binary) if bridge_binary else _default_bridge_binary()
         self.motion_enabled = motion_enabled
-        self.max_translation_m = (
-            config.max_translation_m if max_translation_m is None else max_translation_m
-        )
         self.default_motion_duration_s = (
             config.default_motion_duration_s
             if default_motion_duration_s is None
@@ -162,22 +160,41 @@ class FrankaReal:
         target_quaternion = _normalize_quaternion(np.asarray(quaternion_wxyz).reshape(4))
         delta = target_position - start.position
         duration = self.default_motion_duration_s if duration_s is None else float(duration_s)
-        self._validate_move(delta, start.quaternion_wxyz, target_quaternion, duration)
+        self._validate_duration(duration)
+        self._validate_workspace_target(target_position)
 
-        result = self._run_json(
-            "move-relative",
-            f"{delta[0]:.9f}",
-            f"{delta[1]:.9f}",
-            f"{delta[2]:.9f}",
-            f"{duration:.3f}",
-            *self.workspace.bridge_args(),
-            *self.tcp.bridge_args(),
-        )
+        if _same_orientation(start.quaternion_wxyz, target_quaternion, self.orientation_tolerance):
+            result = self._run_json(
+                "move-relative",
+                f"{delta[0]:.9f}",
+                f"{delta[1]:.9f}",
+                f"{delta[2]:.9f}",
+                f"{duration:.3f}",
+                *self.workspace.bridge_args(),
+                *self.tcp.bridge_args(),
+            )
+        else:
+            result = self._run_json(
+                "move-pose",
+                f"{delta[0]:.9f}",
+                f"{delta[1]:.9f}",
+                f"{delta[2]:.9f}",
+                f"{target_quaternion[0]:.9f}",
+                f"{target_quaternion[1]:.9f}",
+                f"{target_quaternion[2]:.9f}",
+                f"{target_quaternion[3]:.9f}",
+                f"{duration:.3f}",
+                *self.workspace.bridge_args(),
+                *self.tcp.bridge_args(),
+            )
         self.last_command = {
             "command": "move_to_pose",
             "start_position": start.position.tolist(),
+            "start_quaternion_wxyz": start.quaternion_wxyz.tolist(),
             "target_position": target_position.tolist(),
+            "target_quaternion_wxyz": target_quaternion.tolist(),
             "final_position": result["position"],
+            "final_quaternion_wxyz": result["quaternion_wxyz"],
             "duration_s": duration,
         }
         return target_position[None, :]
@@ -239,6 +256,9 @@ class FrankaReal:
             "gripper-close",
             f"{float(width_m):.6f}",
             f"{GRIPPER_SPEED_M_S:.6f}",
+            f"{GRIPPER_FORCE_N:.6f}",
+            f"{GRASP_EPSILON_INNER_M:.6f}",
+            f"{GRASP_EPSILON_OUTER_M:.6f}",
         )
         state = FrankaGripperState(
             width=float(payload["width"]),
@@ -257,6 +277,10 @@ class FrankaReal:
             is_grasped=bool(payload["is_grasped"]),
             temperature=float(payload["temperature"]),
         )
+
+    def recover_errors(self) -> None:
+        """Clear recoverable libfranka reflex/error state without commanding motion."""
+        self._run_json("recover-errors")
 
     @staticmethod
     def ping_robot(host: str) -> bool:
@@ -294,25 +318,13 @@ class FrankaReal:
                 "motion_enabled=True only after the workspace and stop button are ready."
             )
 
-    def _validate_move(
-        self,
-        delta: np.ndarray,
-        current_quaternion: np.ndarray,
-        target_quaternion: np.ndarray,
-        duration_s: float,
-    ) -> None:
-        if np.max(np.abs(delta)) > self.max_translation_m:
-            raise ValueError(
-                f"Real Franka move exceeds max_translation_m={self.max_translation_m}: "
-                f"delta={delta.tolist()}"
-            )
+    def _validate_duration(self, duration_s: float) -> None:
         if not 2.0 <= duration_s <= 20.0:
             raise ValueError("duration_s must be in [2.0, 20.0]")
-        if not _same_orientation(current_quaternion, target_quaternion, self.orientation_tolerance):
-            raise ValueError(
-                "FrankaReal currently supports translation-only Cartesian moves. "
-                "Use the current quaternion_wxyz from get_end_effector_pose()."
-            )
+
+    def _validate_workspace_target(self, position: np.ndarray) -> None:
+        if not self.workspace.contains(position):
+            raise ValueError(f"Real Franka target is outside workspace limits: {position.tolist()}")
 
 
 def load_franka_real_config(config_path: str | Path = DEFAULT_CONFIG_PATH) -> FrankaRealConfig:
@@ -326,7 +338,6 @@ def load_franka_real_config(config_path: str | Path = DEFAULT_CONFIG_PATH) -> Fr
     return FrankaRealConfig(
         host=str(data["host"]),
         default_motion_duration_s=float(motion["default_duration_s"]),
-        max_translation_m=float(motion["max_translation_m"]),
         orientation_tolerance=float(motion["orientation_tolerance"]),
         home_joint_duration_s=float(motion.get("home_joint_duration_s", 8.0)),
         home_joint_positions=_read_vector7(data.get("home") or {}, "joint_positions"),

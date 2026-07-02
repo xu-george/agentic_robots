@@ -451,7 +451,7 @@ cd /home/user/Documents/Code/agentic_robots
 ```
 
 `--show-grasp-pose` refreshes the PyBullet debug marker every time the LLM code
-calls `get_best_grasp_pose()`. It draws the latest top 5 GraspNet candidates,
+calls `get_finger_grasp()`. It draws the latest top 5 GraspNet candidates,
 highlights the best raw GraspNet marker, and returns the converted executable
 Panda pose to the generated code.
 

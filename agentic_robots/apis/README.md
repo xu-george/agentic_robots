@@ -20,6 +20,7 @@ get_object_pose
 mask_to_3d_points
 get_oriented_bounding_box_from_3d_points
 plan_grasp
+get_finger_grasp
 ```
 
 Current responsibilities:
@@ -28,17 +29,20 @@ Current responsibilities:
 RGB image + text prompt -> segmentation mask
 RGB-D + text prompt -> object 3D pose estimate
 depth + intrinsics + segmentation -> grasp candidates
+depth + intrinsics + segmentation -> finger-tip grasp target pose
 ```
 
 Grasp frame convention:
 
 ```text
-Contact-GraspNet returns a Panda gripper/control-point frame.
-PerceptionApi.get_best_grasp_pose() applies a +0.105 m local-Z offset by
+plan_grasp returns raw Contact-GraspNet Panda gripper/control-point
+transforms whose origin is the Panda hand/wrist base (NOT the finger tips).
+PerceptionApi.get_finger_grasp() applies a +0.105 m local-Z offset by
 default so the returned pose is the project grasp point between the two
-Panda finger tips. This matches PyBullet link 11, panda_grasptarget.
-Real robot experiments can pass apply_grasp_target_offset=False when
-FrankaReal.get_end_effector_pose() should command the raw GraspNet frame.
+Panda finger tips, i.e. where the Franka hand link should move to. This
+matches PyBullet link 11, panda_grasptarget. Real robot experiments can
+pass apply_grasp_target_offset=False when FrankaReal.get_end_effector_pose()
+should command the raw GraspNet hand-base frame.
 ```
 
 The perception API does not execute robot motion. The future `action` API should

@@ -81,7 +81,7 @@ def main() -> None:
     plan = api.plan_grasp(depth, intrinsics, pose.mask)
     assert plan.grasps.shape == (1, 4, 4)
     assert plan.best_grasp is not None
-    grasp_pose = api.get_best_grasp_pose(depth, intrinsics, pose.mask)
+    grasp_pose = api.get_finger_grasp(depth, intrinsics, pose.mask)
     assert grasp_pose.position.shape == (3,)
     assert grasp_pose.orientation_wxyz.shape == (4,)
     assert grasp_pose.transform.shape == (4, 4)
@@ -91,7 +91,7 @@ def main() -> None:
     assert np.allclose(grasp_pose.transform, PANDA_GRASPTARGET_FROM_GRASPNET)
     assert np.allclose(grasp_pose.grasp_target_offset_m, PANDA_GRASPTARGET_OFFSET_M)
 
-    raw_grasp_pose = api.get_best_grasp_pose(
+    raw_grasp_pose = api.get_finger_grasp(
         depth,
         intrinsics,
         pose.mask,
@@ -105,7 +105,7 @@ def main() -> None:
     assert "segment_object" in docs
     assert "get_object_pose" in docs
     assert "plan_grasp" in docs
-    assert "get_best_grasp_pose" in docs
+    assert "get_finger_grasp" in docs
 
     print("Perception API smoke test passed")
 

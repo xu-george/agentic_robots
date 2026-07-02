@@ -13,24 +13,52 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "tests" / "agent_test" / "outputs" / "stacking_agent"
 
 STACKING_SYSTEM_PROMPT = """You write short Python robot task programs.
-Use only the provided action and scene functions. Do not import modules.
-get_end_effector_pose() returns a FrankaPose object, not a dict.
-Use pose.position and pose.quaternion_wxyz; never use pose["position"] or pose["quaternion_wxyz"].
-Positions are usually numpy arrays, so vector addition with small offset lists is allowed.
-Return only executable Python code, no markdown, no explanation.
+Use only the provided functions. NumPy is pre-imported as `np`; do not write
+any `import` statement. get_end_effector_pose() returns a FrankaPose object;
+use pose.position and pose.quaternion_wxyz, never dict access. Positions are
+numpy arrays, so vector addition with small offset lists is allowed. Approach
+every target from above first, then descend; never go straight to a table-level
+pose or the arm will sweep through the cubes. Return ONLY executable Python
+code, no markdown, no explanation, NO comments at all.
 """
 
-STACKING_API_DESCRIPTION = """Scene:
-- get_observation() -> observation dict
-- get_object_position(name) -> object XYZ position
-- is_success() -> whether red cube is stacked on blue cube
-Action:
-- get_end_effector_pose() -> current robot pose with position and quaternion_wxyz
-  Access these as pose.position and pose.quaternion_wxyz, not pose["position"].
-- move_to_pose(position, quaternion_wxyz, plan_steps=40, sim_steps_per_waypoint=4)
-- open_gripper()
-- close_gripper()
-"""
+STACKING_API_FUNCTION_NAMES = [
+    "get_observation",
+    "get_object_position",
+    "is_success",
+    "get_end_effector_pose",
+    "move_to_pose",
+    "open_gripper",
+    "close_gripper",
+]
+
+STACKING_EXTRA_API_FUNCTIONS = {
+    "get_object_position": {
+        "description": "Get the world position of a named object in the scene.",
+        "params": [
+            {
+                "name": "name",
+                "type": "str",
+                "description": 'Object name, e.g. "red_cube" or "blue_cube".',
+                "required": True,
+            }
+        ],
+        "returns": {
+            "type": "np.ndarray",
+            "shape": "(3,)",
+            "dtype": "float64",
+            "description": "Object center position [x, y, z]. Index [2] is the cube center z.",
+        },
+    },
+    "is_success": {
+        "description": "Check if the stacking task is complete (red cube centered above blue cube).",
+        "params": [],
+        "returns": {
+            "type": "bool",
+            "description": "True if red cube center is ~0.05m above blue cube center and aligned in xy.",
+        },
+    },
+}
 
 STACKING_REVISION_GUIDANCE = (
     "Revise the stacking code. Approach the red cube from above, close the gripper, "
@@ -79,7 +107,9 @@ def main() -> None:
             api_functions=api_functions,
             success_fn=env.is_success,
             system_prompt=STACKING_SYSTEM_PROMPT,
-            api_description=STACKING_API_DESCRIPTION,
+            api_schema_path=PROJECT_ROOT / "configs" / "api_schema.json",
+            api_function_names=STACKING_API_FUNCTION_NAMES,
+            extra_api_functions=STACKING_EXTRA_API_FUNCTIONS,
             scene_context_fn=lambda: {
                 "objects": make_scene_summary(env),
                 "goal": "red_cube centered above blue_cube",

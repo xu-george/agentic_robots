@@ -1,0 +1,691 @@
+{
+  "runtime": {
+    "description": "The execution environment for generated code. Only the following are available.",
+    "pre_imported": {
+      "np": "numpy (pre-imported as np)",
+      "numpy": "numpy (pre-imported as numpy)",
+      "math": "Python math module",
+      "time": "Python time module"
+    },
+    "builtins": [
+      "abs", "bool", "dict", "enumerate", "float", "int", "len", "list",
+      "max", "min", "print", "range", "round", "str", "sum", "tuple", "zip"
+    ],
+    "allowed_imports": ["numpy", "math", "time"],
+    "restrictions": [
+      "Do NOT write import statements except for numpy, math, or time.",
+      "Do NOT use os, sys, subprocess, socket, or any system modules.",
+      "Do NOT define helper functions or classes.",
+      "Do NOT use open() or any file I/O."
+    ]
+  },
+  "apis": {
+    "perception": {
+      "description": "Perception API for object segmentation, pose estimation, and grasp planning.",
+      "functions": {
+        "get_observation": {
+          "description": "Get the latest RGB-D observation from the camera or simulation.",
+          "params": [],
+          "returns": {
+            "type": "dict",
+            "description": "Observation dictionary with the following keys.",
+            "fields": {
+              "rgb": {
+                "type": "np.ndarray",
+                "shape": "(H, W, 3)",
+                "dtype": "uint8",
+                "description": "RGB image."
+              },
+              "depth": {
+                "type": "np.ndarray",
+                "shape": "(H, W)",
+                "dtype": "float64",
+                "description": "Depth image in meters."
+              },
+              "intrinsics": {
+                "type": "np.ndarray",
+                "shape": "(3, 3)",
+                "dtype": "float64",
+                "description": "Camera intrinsic matrix."
+              },
+              "camera_pose": {
+                "type": "np.ndarray",
+                "shape": "(4, 4)",
+                "dtype": "float64",
+                "description": "Camera-to-world transform. May be None.",
+                "optional": true
+              }
+            }
+          }
+        },
+        "segment_object": {
+          "description": "Segment objects in an RGB image using a text prompt with SAM3.",
+          "params": [
+            {
+              "name": "rgb",
+              "type": "np.ndarray",
+              "shape": "(H, W, 3)",
+              "dtype": "uint8",
+              "description": "RGB image.",
+              "required": true
+            },
+            {
+              "name": "text_prompt",
+              "type": "str",
+              "description": "Natural language object prompt, e.g. \"banana\" or \"red cube\".",
+              "required": true
+            }
+          ],
+          "returns": {
+            "type": "list[Sam3Mask]",
+            "description": "List of segmentation results. Each Sam3Mask has the following fields.",
+            "fields": {
+              "mask": {
+                "type": "np.ndarray",
+                "shape": "(H, W)",
+                "dtype": "bool",
+                "description": "Binary segmentation mask."
+              },
+              "box": {
+                "type": "tuple",
+                "shape": "(4,)",
+                "description": "Bounding box as (x_min, y_min, x_max, y_max) in pixels."
+              },
+              "score": {
+                "type": "float",
+                "description": "Confidence score."
+              },
+              "label": {
+                "type": "str",
+                "description": "Predicted label."
+              }
+            }
+          }
+        },
+        "segment_point": {
+          "description": "Segment objects in an RGB image using a point prompt with SAM3.",
+          "params": [
+            {
+              "name": "rgb",
+              "type": "np.ndarray",
+              "shape": "(H, W, 3)",
+              "dtype": "uint8",
+              "description": "RGB image.",
+              "required": true
+            },
+            {
+              "name": "point_xy",
+              "type": "tuple",
+              "shape": "(2,)",
+              "description": "Pixel coordinate as (x, y).",
+              "required": true
+            }
+          ],
+          "returns": {
+            "type": "list[PointPromptResult]",
+            "description": "List of point-prompt segmentation results.",
+            "fields": {
+              "mask": {
+                "type": "np.ndarray",
+                "shape": "(H, W)",
+                "dtype": "bool",
+                "description": "Binary segmentation mask."
+              },
+              "score": {
+                "type": "float",
+                "description": "Confidence score."
+              }
+            }
+          }
+        },
+        "get_object_pose": {
+          "description": "Estimate a named object's 3D pose from RGB-D data. Segments with SAM3, projects through depth, returns centroid and PCA-oriented bounding box.",
+          "params": [
+            {
+              "name": "rgb",
+              "type": "np.ndarray",
+              "shape": "(H, W, 3)",
+              "dtype": "uint8",
+              "description": "RGB image.",
+              "required": true
+            },
+            {
+              "name": "depth",
+              "type": "np.ndarray",
+              "shape": "(H, W)",
+              "dtype": "float64",
+              "description": "Depth image in meters.",
+              "required": true
+            },
+            {
+              "name": "intrinsics",
+              "type": "np.ndarray",
+              "shape": "(3, 3)",
+              "dtype": "float64",
+              "description": "Camera intrinsic matrix.",
+              "required": true
+            },
+            {
+              "name": "object_name",
+              "type": "str",
+              "description": "Natural language object name to segment.",
+              "required": true
+            },
+            {
+              "name": "camera_pose",
+              "type": "np.ndarray",
+              "shape": "(4, 4)",
+              "dtype": "float64",
+              "description": "Optional camera-to-world transform. If provided, output is in world frame.",
+              "required": false,
+              "default": "None"
+            },
+            {
+              "name": "min_depth_m",
+              "type": "float",
+              "description": "Minimum valid depth in meters.",
+              "required": false,
+              "default": 0.05
+            }
+          ],
+          "returns": {
+            "type": "ObjectPose",
+            "description": "Object pose result. See types.ObjectPose."
+          }
+        },
+        "mask_to_3d_points": {
+          "description": "Project masked depth pixels into a 3D point cloud.",
+          "params": [
+            {
+              "name": "depth",
+              "type": "np.ndarray",
+              "shape": "(H, W)",
+              "dtype": "float64",
+              "description": "Depth image in meters.",
+              "required": true
+            },
+            {
+              "name": "intrinsics",
+              "type": "np.ndarray",
+              "shape": "(3, 3)",
+              "dtype": "float64",
+              "description": "Camera intrinsic matrix.",
+              "required": true
+            },
+            {
+              "name": "mask",
+              "type": "np.ndarray",
+              "shape": "(H, W)",
+              "dtype": "bool",
+              "description": "Binary object mask.",
+              "required": true
+            },
+            {
+              "name": "camera_pose",
+              "type": "np.ndarray",
+              "shape": "(4, 4)",
+              "dtype": "float64",
+              "description": "Optional camera-to-world transform.",
+              "required": false,
+              "default": "None"
+            },
+            {
+              "name": "min_depth_m",
+              "type": "float",
+              "description": "Minimum valid depth in meters.",
+              "required": false,
+              "default": 0.05
+            }
+          ],
+          "returns": {
+            "type": "np.ndarray",
+            "shape": "(N, 3)",
+            "dtype": "float64",
+            "description": "3D points. Camera frame unless camera_pose is provided."
+          }
+        },
+        "get_oriented_bounding_box_from_3d_points": {
+          "description": "Estimate an oriented bounding box from 3D points using PCA.",
+          "params": [
+            {
+              "name": "points",
+              "type": "np.ndarray",
+              "shape": "(N, 3)",
+              "dtype": "float64",
+              "description": "Point cloud.",
+              "required": true
+            }
+          ],
+          "returns": {
+            "type": "OrientedBoundingBox",
+            "description": "Bounding box with center, extent, and rotation. See types.OrientedBoundingBox."
+          }
+        },
+        "plan_grasp": {
+          "description": "Plan grasp candidates for one segmented object using Contact-GraspNet.",
+          "params": [
+            {
+              "name": "depth",
+              "type": "np.ndarray",
+              "shape": "(H, W)",
+              "dtype": "float64",
+              "description": "Depth image in meters.",
+              "required": true
+            },
+            {
+              "name": "intrinsics",
+              "type": "np.ndarray",
+              "shape": "(3, 3)",
+              "dtype": "float64",
+              "description": "Camera intrinsic matrix.",
+              "required": true
+            },
+            {
+              "name": "segmentation",
+              "type": "np.ndarray or list[Sam3Mask] or Sam3Mask",
+              "description": "Segmentation mask or list of Sam3Mask objects. Pixels equal to segmap_id are the target.",
+              "required": true
+            },
+            {
+              "name": "segmap_id",
+              "type": "int",
+              "description": "Target object ID in the segmentation map.",
+              "required": false,
+              "default": 1
+            },
+            {
+              "name": "z_range",
+              "type": "tuple[float, float]",
+              "description": "Valid depth range for Contact-GraspNet.",
+              "required": false,
+              "default": [0.2, 2.0]
+            },
+            {
+              "name": "forward_passes",
+              "type": "int",
+              "description": "Number of Contact-GraspNet forward passes.",
+              "required": false,
+              "default": 4
+            },
+            {
+              "name": "max_retries",
+              "type": "int",
+              "description": "Service retry count.",
+              "required": false,
+              "default": 10
+            }
+          ],
+          "returns": {
+            "type": "GraspPlan",
+            "description": "Grasp plan with transforms, scores, and contact points. See types.GraspPlan."
+          }
+        },
+        "get_finger_grasp": {
+          "description": "Return the best grasp candidate as a finger-tip grasp pose. Calls plan_grasp internally, selects the highest-scoring grasp, and converts it to a Panda fingertip target. This is the main grasp function to use for pick-and-place tasks.",
+          "params": [
+            {
+              "name": "depth",
+              "type": "np.ndarray",
+              "shape": "(H, W)",
+              "dtype": "float64",
+              "description": "Depth image in meters.",
+              "required": true
+            },
+            {
+              "name": "intrinsics",
+              "type": "np.ndarray",
+              "shape": "(3, 3)",
+              "dtype": "float64",
+              "description": "Camera intrinsic matrix.",
+              "required": true
+            },
+            {
+              "name": "segmentation",
+              "type": "np.ndarray or list[Sam3Mask] or Sam3Mask",
+              "description": "Segmentation mask or list of Sam3Mask objects.",
+              "required": true
+            },
+            {
+              "name": "camera_pose",
+              "type": "np.ndarray",
+              "shape": "(4, 4)",
+              "dtype": "float64",
+              "description": "Camera-to-world transform. If provided, output is in world frame.",
+              "required": false,
+              "default": "None"
+            },
+            {
+              "name": "segmap_id",
+              "type": "int",
+              "description": "Target object ID in the segmentation map.",
+              "required": false,
+              "default": 1
+            },
+            {
+              "name": "apply_grasp_target_offset",
+              "type": "bool",
+              "description": "If True, offset to finger-tip grasp point (+0.105m local Z).",
+              "required": false,
+              "default": true
+            }
+          ],
+          "returns": {
+            "type": "GraspPose",
+            "description": "Best grasp pose. See types.GraspPose. Use .position and .quaternion_wxyz to move the robot."
+          }
+        }
+      }
+    },
+    "action": {
+      "description": "Robot action API for end-effector control. Works with both simulated and real Franka.",
+      "functions": {
+        "get_end_effector_pose": {
+          "description": "Return the current end-effector pose.",
+          "params": [],
+          "returns": {
+            "type": "FrankaPose",
+            "description": "Robot pose object. Access with .position and .quaternion_wxyz (dot access, NOT dict access).",
+            "fields": {
+              "position": {
+                "type": "np.ndarray",
+                "shape": "(3,)",
+                "dtype": "float64",
+                "description": "End-effector position [x, y, z] in meters."
+              },
+              "quaternion_wxyz": {
+                "type": "np.ndarray",
+                "shape": "(4,)",
+                "dtype": "float64",
+                "description": "Orientation as [w, x, y, z] quaternion."
+              }
+            }
+          }
+        },
+        "move_to_pose": {
+          "description": "Move the gripper to a target world pose. This is a high-level API: the real Franka backend internally splits large Cartesian translations into safe bridge-limited waypoints. Task code should call this once per semantic target pose, for example above-grasp, grasp, and lift.",
+          "params": [
+            {
+              "name": "position",
+              "type": "np.ndarray",
+              "shape": "(3,)",
+              "dtype": "float64",
+              "description": "Target position [x, y, z] in meters.",
+              "required": true
+            },
+            {
+              "name": "quaternion_wxyz",
+              "type": "np.ndarray",
+              "shape": "(4,)",
+              "dtype": "float64",
+              "description": "Target orientation as [w, x, y, z] quaternion.",
+              "required": true
+            }
+          ],
+          "returns": {
+            "type": "np.ndarray or None",
+            "description": "Final joint positions or None."
+          },
+          "kwargs": {
+            "description": "Backend-specific keyword arguments.",
+            "sim_kwargs": {
+              "plan_steps": {
+                "type": "int",
+                "description": "Number of IK interpolation steps.",
+                "default": 40
+              },
+              "sim_steps_per_waypoint": {
+                "type": "int",
+                "description": "Physics substeps per waypoint.",
+                "default": 4
+              }
+            },
+            "real_kwargs": {
+              "duration_s": {
+                "type": "float",
+                "description": "Motion duration in seconds.",
+                "default": 5.0
+              }
+            }
+          }
+        },
+        "open_gripper": {
+          "description": "Open the Franka gripper.",
+          "params": [],
+          "returns": {
+            "type": "None"
+          },
+          "kwargs": {
+            "description": "Backend-specific keyword arguments.",
+            "sim_kwargs": {
+              "steps": {
+                "type": "int",
+                "description": "Number of gripper actuation steps.",
+                "default": 120
+              }
+            },
+            "real_kwargs": {
+              "width_m": {
+                "type": "float",
+                "description": "Target gripper width in meters.",
+                "default": 0.08
+              }
+            }
+          }
+        },
+        "close_gripper": {
+          "description": "Close the Franka gripper.",
+          "params": [],
+          "returns": {
+            "type": "None"
+          },
+          "kwargs": {
+            "description": "Backend-specific keyword arguments.",
+            "sim_kwargs": {
+              "steps": {
+                "type": "int",
+                "description": "Number of gripper actuation steps.",
+                "default": 120
+              }
+            },
+            "real_kwargs": {
+              "width_m": {
+                "type": "float",
+                "description": "Target gripper width in meters.",
+                "default": 0.0
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "types": {
+    "ObjectPose": {
+      "description": "3D object pose estimate from RGB-D segmentation.",
+      "fields": {
+        "object_name": {
+          "type": "str",
+          "description": "Name of the detected object."
+        },
+        "position": {
+          "type": "np.ndarray",
+          "shape": "(3,)",
+          "dtype": "float64",
+          "description": "Object centroid position [x, y, z]."
+        },
+        "orientation_wxyz": {
+          "type": "np.ndarray",
+          "shape": "(4,)",
+          "dtype": "float64",
+          "description": "Object orientation as [w, x, y, z] quaternion (PCA axes)."
+        },
+        "mask": {
+          "type": "np.ndarray",
+          "shape": "(H, W)",
+          "dtype": "bool",
+          "description": "Selected segmentation mask."
+        },
+        "box": {
+          "type": "tuple",
+          "shape": "(4,)",
+          "description": "2D bounding box (x_min, y_min, x_max, y_max)."
+        },
+        "score": {
+          "type": "float",
+          "description": "Segmentation confidence score."
+        },
+        "points": {
+          "type": "np.ndarray",
+          "shape": "(N, 3)",
+          "dtype": "float64",
+          "description": "3D point cloud of the object."
+        },
+        "oriented_bounding_box": {
+          "type": "OrientedBoundingBox",
+          "description": "PCA-oriented bounding box."
+        }
+      }
+    },
+    "OrientedBoundingBox": {
+      "description": "Oriented bounding box estimated from 3D points using PCA.",
+      "fields": {
+        "center": {
+          "type": "np.ndarray",
+          "shape": "(3,)",
+          "dtype": "float64",
+          "description": "Box center position."
+        },
+        "extent": {
+          "type": "np.ndarray",
+          "shape": "(3,)",
+          "dtype": "float64",
+          "description": "Box dimensions along each principal axis."
+        },
+        "rotation": {
+          "type": "np.ndarray",
+          "shape": "(3, 3)",
+          "dtype": "float64",
+          "description": "Rotation matrix. Columns are principal axes."
+        }
+      }
+    },
+    "GraspPose": {
+      "description": "6-DoF grasp pose from GraspNet. Use .position and .quaternion_wxyz with move_to_pose().",
+      "fields": {
+        "position": {
+          "type": "np.ndarray",
+          "shape": "(3,)",
+          "dtype": "float64",
+          "description": "Grasp target position (finger-tip point)."
+        },
+        "orientation_wxyz": {
+          "type": "np.ndarray",
+          "shape": "(4,)",
+          "dtype": "float64",
+          "description": "Grasp orientation as [w, x, y, z] quaternion."
+        },
+        "quaternion_wxyz": {
+          "type": "np.ndarray",
+          "shape": "(4,)",
+          "dtype": "float64",
+          "description": "Alias for orientation_wxyz. Use this with move_to_pose()."
+        },
+        "score": {
+          "type": "float",
+          "description": "Grasp confidence score."
+        },
+        "transform": {
+          "type": "np.ndarray",
+          "shape": "(4, 4)",
+          "dtype": "float64",
+          "description": "Full 4x4 homogeneous transform of the grasp command frame."
+        },
+        "plan": {
+          "type": "GraspPlan",
+          "description": "The full grasp plan this pose was selected from."
+        },
+        "graspnet_transform": {
+          "type": "np.ndarray",
+          "shape": "(4, 4)",
+          "dtype": "float64",
+          "description": "Raw Contact-GraspNet gripper frame transform.",
+          "optional": true
+        }
+      }
+    },
+    "GraspPlan": {
+      "description": "Contact-GraspNet grasp candidates.",
+      "fields": {
+        "grasps": {
+          "type": "np.ndarray",
+          "shape": "(N, 4, 4)",
+          "dtype": "float64",
+          "description": "Array of 4x4 grasp transforms."
+        },
+        "scores": {
+          "type": "np.ndarray",
+          "shape": "(N,)",
+          "dtype": "float64",
+          "description": "Grasp scores."
+        },
+        "contact_points": {
+          "type": "np.ndarray",
+          "shape": "(N, 3)",
+          "dtype": "float64",
+          "description": "Grasp contact points."
+        }
+      }
+    },
+    "Sam3Mask": {
+      "description": "SAM3 text-prompt segmentation result.",
+      "fields": {
+        "mask": {
+          "type": "np.ndarray",
+          "shape": "(H, W)",
+          "dtype": "bool",
+          "description": "Binary segmentation mask."
+        },
+        "box": {
+          "type": "tuple",
+          "shape": "(4,)",
+          "description": "Bounding box (x_min, y_min, x_max, y_max)."
+        },
+        "score": {
+          "type": "float",
+          "description": "Confidence score."
+        },
+        "label": {
+          "type": "str",
+          "description": "Predicted label."
+        }
+      }
+    },
+    "FrankaPose": {
+      "description": "Robot end-effector pose. Use dot access: pose.position, pose.quaternion_wxyz.",
+      "fields": {
+        "position": {
+          "type": "np.ndarray",
+          "shape": "(3,)",
+          "dtype": "float64",
+          "description": "End-effector position [x, y, z] in meters."
+        },
+        "quaternion_wxyz": {
+          "type": "np.ndarray",
+          "shape": "(4,)",
+          "dtype": "float64",
+          "description": "Orientation as [w, x, y, z] quaternion."
+        }
+      }
+    }
+  },
+  "usage_tips": [
+    "Always call get_observation() first to get rgb, depth, intrinsics, camera_pose.",
+    "Use segment_object(rgb, \"object_name\") to get masks, then pass masks to get_finger_grasp().",
+    "get_finger_grasp() returns a GraspPose. Use grasp.position and grasp.quaternion_wxyz with move_to_pose().",
+    "get_end_effector_pose() returns a FrankaPose. Use pose.position and pose.quaternion_wxyz (dot access, not dict).",
+    "Positions are numpy arrays. Use vector addition for offsets: position + np.array([0, 0, 0.1]).",
+    "Always approach a target from above first (add +Z offset), then descend to the target.",
+    "Open the gripper before approaching, close it at the grasp position, then lift upward.",
+    "Pass the segmentation list directly from segment_object() to get_finger_grasp() or plan_grasp()."
+  ]
+}

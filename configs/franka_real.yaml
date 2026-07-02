@@ -2,7 +2,6 @@ host: 172.16.0.2
 
 motion:
   default_duration_s: 5.0
-  max_translation_m: 0.05
   orientation_tolerance: 0.005
   home_joint_duration_s: 8.0
 
@@ -19,4 +18,4 @@ workspace:
 # this real calibration check; the previous [0, 0, 0.105] virtual offset did not
 # match the visible fingertip/table height on the current gripper setup.
 tcp:
-  offset_from_ee: [0.0, 0.0, 0.0]
+  offset_from_ee: [0.0, 0.0, 0.01]
