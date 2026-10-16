@@ -33,7 +33,10 @@ class Sam3Engine:
         self.model = model.to(device) if hasattr(model, "to") else model
         self.processor = Sam3Processor(self.model, device=device, confidence_threshold=0.0)
 
-    def segment(self, image_base64: str, prompt: str) -> list[dict[str, Any]]:
+    def segment(self, image_base64: str, prompt: str, min_score: float = 0.0,
+                max_results: int | None = None) -> list[dict[str, Any]]:
+        """Text-prompt masks sorted by score. ``min_score`` / ``max_results`` select on the GPU before any
+        mask is copied or encoded (the processor returns ~200 candidates; defaults keep all of them)."""
         import torch
 
         if self.processor is None:
@@ -45,17 +48,24 @@ class Sam3Engine:
             state = self.processor.set_image(image)
             output = self.processor.set_text_prompt(state=state, prompt=prompt)
 
-        masks = _to_numpy(output.get("masks"))
-        boxes = _to_numpy(output.get("boxes"))
-        scores = _to_numpy(output.get("scores"))
-
+        masks, boxes, scores = output.get("masks"), output.get("boxes"), output.get("scores")
         if masks is None or boxes is None or scores is None:
             return []
+        if torch.is_tensor(scores):
+            flat = scores.flatten()
+            keep = torch.nonzero(flat >= min_score).flatten()
+            keep = keep[torch.argsort(flat[keep], descending=True)]
+            if max_results is not None:
+                keep = keep[:max_results]
+            masks, boxes, scores = masks[keep], boxes[keep], flat[keep]
+        masks, boxes, scores = _to_numpy(masks), _to_numpy(boxes), _to_numpy(scores)
         if masks.ndim == 4 and masks.shape[1] == 1:
             masks = masks.squeeze(1)
 
         results: list[dict[str, Any]] = []
         for mask, box, score in zip(masks, boxes, scores):
+            if float(score) < min_score:
+                continue
             mask_bool = mask > 0
             results.append(
                 {
@@ -66,7 +76,8 @@ class Sam3Engine:
                     "label": prompt,
                 }
             )
-        return sorted(results, key=lambda item: item["score"], reverse=True)
+        results = sorted(results, key=lambda item: item["score"], reverse=True)
+        return results[:max_results] if max_results is not None else results
 
     def segment_point(self, image_base64: str, point_coords: list[float]) -> dict[str, Any]:
         import torch
@@ -113,6 +124,8 @@ def create_app(engine: Sam3Engine | None = None):
     class SegmentRequest(BaseModel):
         image_base64: str
         text_prompt: str
+        min_score: float = 0.0
+        max_results: int | None = None
 
     class PointRequest(BaseModel):
         image_base64: str
@@ -130,7 +143,8 @@ def create_app(engine: Sam3Engine | None = None):
     @app.post("/segment")
     async def segment(req: SegmentRequest = Body(...)):
         try:
-            return {"results": await run_locked(engine.segment, req.image_base64, req.text_prompt)}
+            return {"results": await run_locked(engine.segment, req.image_base64, req.text_prompt,
+                                                req.min_score, req.max_results)}
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 

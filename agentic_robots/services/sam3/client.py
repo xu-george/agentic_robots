@@ -24,8 +24,11 @@ class Sam3Client:
     def __init__(self, url: str = DEFAULT_SAM3_URL, timeout_s: float = 60.0):
         self.config = ServiceConfig(url=url, timeout_s=timeout_s)
 
-    def segment(self, image: np.ndarray | Image.Image, prompt: str) -> list[Sam3Mask]:
-        payload = {"image_base64": encode_image(image), "text_prompt": prompt}
+    def segment(self, image: np.ndarray | Image.Image, prompt: str, min_score: float = 0.0,
+                max_results: int | None = None) -> list[Sam3Mask]:
+        """Masks sorted by score; ``min_score`` / ``max_results`` are applied on the server."""
+        payload = {"image_base64": encode_image(image), "text_prompt": prompt, "min_score": min_score,
+                   "max_results": max_results}
         data = post_json(self.config, "/segment", payload)
 
         masks: list[Sam3Mask] = []
